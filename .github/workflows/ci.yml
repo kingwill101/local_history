@@ -37,7 +37,7 @@ jobs:
         run: dart pub get
 
       - name: Run tests
-        run: dart test
+        run: dart run tool/run_tests.dart
 
       - name: Build CLI
         run: |
