@@ -271,4 +271,68 @@ void main() {
 
     await db.close();
   });
+
+  test('history database defers indexing and reindexes pending', () async {
+    final tempDir = await Directory.systemTemp.createTemp('lh_db_deferred');
+    addTearDown(() => tempDir.delete(recursive: true));
+
+    final dbPath = p.join(tempDir.path, 'history.db');
+    final db = await HistoryDb.open(dbPath, createIfMissing: true);
+
+    final revId = await db.insertRevision(
+      path: 'lib/deferred.txt',
+      timestampMs: 1000,
+      changeType: 'create',
+      content: Uint8List.fromList('alpha'.codeUnits),
+      contentText: 'alpha',
+      deferIndexing: true,
+    );
+
+    final before = await db.search(query: 'alpha');
+    expect(before.isEmpty, true);
+
+    final revision = await db.getRevision(revId);
+    expect(revision?.contentText, 'alpha');
+
+    final indexed = await db.reindexPending(batchSize: 1);
+    expect(indexed, 1);
+
+    final after = await db.search(query: 'alpha');
+    expect(after.isNotEmpty, true);
+
+    await db.close();
+  });
+
+  test('history database rebuilds full-text index', () async {
+    final tempDir = await Directory.systemTemp.createTemp('lh_db_reindex_all');
+    addTearDown(() => tempDir.delete(recursive: true));
+
+    final dbPath = p.join(tempDir.path, 'history.db');
+    final db = await HistoryDb.open(dbPath, createIfMissing: true);
+
+    await db.insertRevision(
+      path: 'lib/a.txt',
+      timestampMs: 1000,
+      changeType: 'create',
+      content: Uint8List.fromList('alpha'.codeUnits),
+      contentText: 'alpha',
+      deferIndexing: true,
+    );
+    await db.insertRevision(
+      path: 'lib/b.txt',
+      timestampMs: 2000,
+      changeType: 'create',
+      content: Uint8List.fromList('bravo'.codeUnits),
+      contentText: 'bravo',
+      deferIndexing: true,
+    );
+
+    final indexed = await db.reindexAll(batchSize: 1);
+    expect(indexed, 2);
+
+    final results = await db.search(query: 'alpha');
+    expect(results.length, 1);
+
+    await db.close();
+  });
 }

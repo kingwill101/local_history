@@ -3,11 +3,15 @@ import 'dart:async';
 import 'dart:io';
 
 import '../daemon.dart';
+import '../fs_watcher.dart';
 import '../history_db.dart';
 import 'base_command.dart';
 
 /// Starts the filesystem watcher daemon.
 class DaemonCommand extends BaseCommand {
+  /// Optional event stream override for tests.
+  static Stream<FsEvent>? eventsOverride;
+
   /// Creates the daemon command and registers CLI options.
   DaemonCommand() {
     argParser
@@ -42,6 +46,7 @@ class DaemonCommand extends BaseCommand {
     final debounceMs = debounceRaw == null
         ? null
         : parseInt(debounceRaw, 'debounce-ms');
+    final injectedEvents = eventsOverride;
     RandomAccessFile? lockHandle;
     HistoryDb? db;
     try {
@@ -67,11 +72,11 @@ class DaemonCommand extends BaseCommand {
         debounceWindow: debounceMs == null
             ? null
             : Duration(milliseconds: debounceMs),
-        configFile: paths.configFile,
+        configFile: injectedEvents == null ? paths.configFile : null,
         lockFile: paths.lockFile,
         lockHandle: lockHandle,
       );
-      await daemon.run(maxEvents: maxEvents);
+      await daemon.run(events: injectedEvents, maxEvents: maxEvents);
     } on StateError catch (error) {
       final message = error.toString();
       io.error(message);

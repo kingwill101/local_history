@@ -26,6 +26,9 @@ void main() {
     expect(loaded.textExtensions, config.textExtensions);
     expect(loaded.snapshotConcurrency, config.snapshotConcurrency);
     expect(loaded.snapshotWriteBatch, config.snapshotWriteBatch);
+    expect(loaded.snapshotIncremental, config.snapshotIncremental);
+    expect(loaded.indexingMode, config.indexingMode);
+    expect(loaded.ftsBatchSize, config.ftsBatchSize);
   });
 
   test('config filters paths and normalizes extensions', () {
@@ -45,6 +48,9 @@ void main() {
       textExtensions: const ['dart', '.MD'],
       snapshotConcurrency: 2,
       snapshotWriteBatch: 16,
+      snapshotIncremental: false,
+      indexingMode: IndexingMode.deferred,
+      ftsBatchSize: 120,
     );
 
     expect(config.isPathIncluded('lib/main.dart'), true);
@@ -55,5 +61,8 @@ void main() {
     expect(config.isTextPath('lib/FILE.DART'), true);
     expect(config.isTextPath('README.md'), true);
     expect(config.isTextPath('image.png'), false);
+    expect(config.snapshotIncremental, false);
+    expect(config.indexingMode, IndexingMode.deferred);
+    expect(config.ftsBatchSize, 120);
   });
 }

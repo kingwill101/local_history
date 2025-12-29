@@ -158,6 +158,9 @@ void main() {
       textExtensions: config.textExtensions,
       snapshotConcurrency: 1,
       snapshotWriteBatch: 4,
+      snapshotIncremental: config.snapshotIncremental,
+      indexingMode: config.indexingMode,
+      ftsBatchSize: config.ftsBatchSize,
     );
     await updated.save(paths.configFile);
 
@@ -202,6 +205,19 @@ void main() {
     ], cwd: dir);
     expect(result.exitCode, isNot(0));
     expect(result.stdout + result.stderr, contains('Invalid write batch'));
+  });
+
+  test('lh snapshot rejects incompatible mode flags', () async {
+    final dir = await createProject();
+    await runCliHarness(['init'], cwd: dir);
+
+    final result = await runCliHarness([
+      'snapshot',
+      '--full',
+      '--modified-only',
+    ], cwd: dir);
+    expect(result.exitCode, isNot(0));
+    expect(result.stdout + result.stderr, contains('--full'));
   });
 
   test(
@@ -305,6 +321,36 @@ void main() {
     final result = await runCliHarness(['search', 'nomatch'], cwd: dir);
     expect(result.exitCode, 0);
     expect(result.stdout, contains('No matches'));
+  });
+
+  test('lh reindex indexes pending revisions', () async {
+    final dir = await createProject();
+    await runCliHarness(['init'], cwd: dir);
+
+    final paths = ProjectPaths(dir);
+    final db = await HistoryDb.open(paths.dbFile.path);
+    await db.insertRevision(
+      path: 'lib/main.dart',
+      timestampMs: 1000,
+      changeType: 'create',
+      content: Uint8List.fromList('alpha beta'.codeUnits),
+      contentText: 'alpha beta',
+      deferIndexing: true,
+    );
+    await db.close();
+
+    final beforeDb = await HistoryDb.open(paths.dbFile.path);
+    final before = await beforeDb.search(query: 'alpha');
+    await beforeDb.close();
+    expect(before.isEmpty, true);
+
+    final result = await runCliHarness(['reindex', '--pending'], cwd: dir);
+    expect(result.exitCode, 0);
+
+    final afterDb = await HistoryDb.open(paths.dbFile.path);
+    final after = await afterDb.search(query: 'alpha');
+    await afterDb.close();
+    expect(after.length, 1);
   });
 
   test('lh restore writes revision content to disk', () async {

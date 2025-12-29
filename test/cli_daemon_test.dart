@@ -1,7 +1,10 @@
 /// CLI tests for the daemon command.
+import 'dart:async';
 import 'dart:io';
 
 import 'package:local_history/local_history.dart';
+import 'package:local_history/src/commands/daemon_command.dart';
+import 'package:local_history/src/fs_watcher.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -27,6 +30,13 @@ void main() {
     await file.parent.create(recursive: true);
     await file.writeAsString('hello');
 
+    final controller = StreamController<FsEvent>();
+    DaemonCommand.eventsOverride = controller.stream;
+    addTearDown(() {
+      DaemonCommand.eventsOverride = null;
+      controller.close();
+    });
+
     final daemonFuture = runCliHarness([
       'daemon',
       '--max-events',
@@ -35,8 +45,11 @@ void main() {
       '10',
     ], cwd: dir);
 
-    await Future.delayed(const Duration(milliseconds: 200));
     await file.writeAsString('hello again');
+    controller.add(
+      FsEvent(type: FsEventType.modify, relativePath: 'lib/main.dart'),
+    );
+    await controller.close();
 
     final result = await daemonFuture.timeout(const Duration(seconds: 2));
     expect(result.exitCode, 0);
@@ -62,6 +75,8 @@ void main() {
     await lockFile.writeAsString(
       '$pid\n${DateTime.now().toUtc().toIso8601String()}\n',
     );
+
+    DaemonCommand.eventsOverride = null;
 
     final result = await runCliHarness([
       'daemon',

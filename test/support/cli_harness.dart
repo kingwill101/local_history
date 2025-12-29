@@ -13,6 +13,7 @@ import 'package:local_history/src/cli.dart'
         InitCommand,
         LabelCommand,
         McpCommand,
+        ReindexCommand,
         RestoreCommand,
         SnapshotCommand,
         SnapshotRestoreCommand,
@@ -85,6 +86,7 @@ Future<CliResult> runCliHarness(
         ..addCommand(SnapshotCommand())
         ..addCommand(SnapshotRestoreCommand())
         ..addCommand(SearchCommand())
+        ..addCommand(ReindexCommand())
         ..addCommand(VerifyCommand())
         ..addCommand(LabelCommand())
         ..addCommand(GcCommand());

@@ -104,6 +104,9 @@ void main() {
       textExtensions: const ['.dart', '.js', '.ts', '.json', '.yaml', '.md'],
       snapshotConcurrency: 2,
       snapshotWriteBatch: 8,
+      snapshotIncremental: true,
+      indexingMode: IndexingMode.immediate,
+      ftsBatchSize: 500,
     );
     await initial.save(configFile);
 
@@ -139,6 +142,9 @@ void main() {
       textExtensions: [...initial.textExtensions, '.txt'],
       snapshotConcurrency: 3,
       snapshotWriteBatch: 8,
+      snapshotIncremental: initial.snapshotIncremental,
+      indexingMode: initial.indexingMode,
+      ftsBatchSize: initial.ftsBatchSize,
     );
     await updated.save(configFile);
 

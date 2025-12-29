@@ -58,6 +58,9 @@ void main() {
       textExtensions: const ['.dart'],
       snapshotConcurrency: 1,
       snapshotWriteBatch: 8,
+      snapshotIncremental: true,
+      indexingMode: IndexingMode.immediate,
+      ftsBatchSize: 500,
     );
     final dbPath = p.join(dir.path, '.lh', 'history.db');
     final db = await HistoryDb.open(dbPath, createIfMissing: true);
@@ -92,6 +95,9 @@ void main() {
       textExtensions: const ['.txt'],
       snapshotConcurrency: 1,
       snapshotWriteBatch: 8,
+      snapshotIncremental: true,
+      indexingMode: IndexingMode.immediate,
+      ftsBatchSize: 500,
     );
     final dbPath = p.join(dir.path, '.lh', 'history.db');
     final db = await HistoryDb.open(dbPath, createIfMissing: true);
@@ -127,6 +133,9 @@ void main() {
       textExtensions: const ['.txt'],
       snapshotConcurrency: 1,
       snapshotWriteBatch: 8,
+      snapshotIncremental: true,
+      indexingMode: IndexingMode.immediate,
+      ftsBatchSize: 500,
     );
     final dbPath = p.join(dir.path, '.lh', 'history.db');
     final db = await HistoryDb.open(dbPath, createIfMissing: true);
@@ -159,6 +168,67 @@ void main() {
     expect(history.first.changeType, 'delete');
     final revision = await db.getRevision(history.first.revId);
     expect(revision?.content.length, 0);
+
+    await db.close();
+  });
+
+  test('snapshotter stores file metadata for revisions', () async {
+    final dir = await createProject();
+    final config = ProjectConfig.defaults(rootPath: dir.path);
+    final dbPath = p.join(dir.path, '.lh', 'history.db');
+    final db = await HistoryDb.open(dbPath, createIfMissing: true);
+    final snapshotter = Snapshotter(config: config, db: db);
+
+    final file = File(p.join(dir.path, 'lib', 'meta.txt'));
+    await file.parent.create(recursive: true);
+    await file.writeAsString('metadata');
+    final stat = await file.stat();
+
+    await snapshotter.snapshotPath('lib/meta.txt');
+
+    final metadata = await db.getFileMetadataMap(['lib/meta.txt']);
+    final entry = metadata['lib/meta.txt'];
+    expect(entry, isNotNull);
+    expect(entry?.lastMtimeMs, stat.modified.millisecondsSinceEpoch);
+    expect(entry?.lastSizeBytes, stat.size);
+
+    await db.close();
+  });
+
+  test('snapshotter skips unchanged files in incremental mode', () async {
+    final dir = await createProject();
+    final config = ProjectConfig.defaults(rootPath: dir.path);
+    final dbPath = p.join(dir.path, '.lh', 'history.db');
+    final db = await HistoryDb.open(dbPath, createIfMissing: true);
+    final snapshotter = Snapshotter(config: config, db: db);
+
+    final file = File(p.join(dir.path, 'lib', 'main.dart'));
+    await file.parent.create(recursive: true);
+    await file.writeAsString('hello');
+    final stat = await file.stat();
+
+    final payload = await snapshotter.readSnapshot('lib/main.dart');
+    expect(payload, isNotNull);
+
+    final skipped = await snapshotter.readSnapshot(
+      'lib/main.dart',
+      previous: FileMetadata(
+        lastMtimeMs: stat.modified.millisecondsSinceEpoch,
+        lastSizeBytes: stat.size,
+      ),
+      incremental: true,
+    );
+    expect(skipped, isNull);
+
+    final fullPayload = await snapshotter.readSnapshot(
+      'lib/main.dart',
+      previous: FileMetadata(
+        lastMtimeMs: stat.modified.millisecondsSinceEpoch,
+        lastSizeBytes: stat.size,
+      ),
+      incremental: false,
+    );
+    expect(fullPayload, isNotNull);
 
     await db.close();
   });
