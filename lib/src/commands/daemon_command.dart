@@ -1,3 +1,4 @@
+/// CLI command that runs the Local History daemon.
 import 'dart:async';
 import 'dart:io';
 
@@ -5,7 +6,9 @@ import '../daemon.dart';
 import '../history_db.dart';
 import 'base_command.dart';
 
+/// Starts the filesystem watcher daemon.
 class DaemonCommand extends BaseCommand {
+  /// Creates the daemon command and registers CLI options.
   DaemonCommand() {
     argParser
       ..addOption(
@@ -18,12 +21,15 @@ class DaemonCommand extends BaseCommand {
       );
   }
 
+  /// Command name for `lh daemon`.
   @override
   String get name => 'daemon';
 
+  /// Command description for `lh daemon`.
   @override
   String get description => 'Start the local history watcher daemon.';
 
+  /// Runs the daemon command.
   @override
   Future<void> run() async {
     final io = this.io;

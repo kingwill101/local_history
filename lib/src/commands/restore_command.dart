@@ -1,21 +1,25 @@
+/// CLI command that restores a revision to disk.
 import 'dart:io';
-
-
 import '../history_db.dart';
 import '../path_utils.dart';
 import 'base_command.dart';
 
+/// Restores a revision to its original file path.
 class RestoreCommand extends BaseCommand {
+  /// Creates the restore command and registers CLI options.
   RestoreCommand() {
     argParser.addFlag('force', help: 'Skip confirmation prompt');
   }
 
+  /// Command name for `lh restore`.
   @override
   String get name => 'restore';
 
+  /// Command description for `lh restore`.
   @override
   String get description => 'Restore a revision to its original file path.';
 
+  /// Runs the restore command.
   @override
   Future<void> run() async {
     final io = this.io;

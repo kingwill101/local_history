@@ -1,7 +1,10 @@
+/// CLI command that cleans up old revisions.
 import '../history_db.dart';
 import 'base_command.dart';
 
+/// Garbage collects old revisions from the database.
 class GcCommand extends BaseCommand {
+  /// Creates the GC command and registers CLI options.
   GcCommand() {
     argParser
       ..addOption('max-days', help: 'Override max age in days')
@@ -9,12 +12,15 @@ class GcCommand extends BaseCommand {
       ..addFlag('vacuum', help: 'Run VACUUM after cleanup');
   }
 
+  /// Command name for `lh gc`.
   @override
   String get name => 'gc';
 
+  /// Command description for `lh gc`.
   @override
   String get description => 'Garbage collect old revisions.';
 
+  /// Runs the garbage collection command.
   @override
   Future<void> run() async {
     final io = this.io;

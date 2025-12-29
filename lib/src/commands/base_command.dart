@@ -1,3 +1,4 @@
+/// Shared CLI command helpers for Local History.
 import 'dart:io';
 
 import 'package:artisanal/args.dart';
@@ -8,19 +9,31 @@ import '../path_utils.dart';
 import '../project_config.dart';
 import '../project_paths.dart';
 
+/// Base class for Local History CLI commands.
 abstract class BaseCommand extends Command<void> {
+  /// Overrides the project root for tests or embedding.
   static Directory? rootOverride;
 
+  /// Resolved project paths for this command.
   ProjectPaths get paths => ProjectPaths(rootOverride ?? Directory.current);
 
+  /// Loads the project configuration.
   Future<ProjectConfig> loadConfig() {
     return ProjectConfig.load(paths.configFile, rootPath: paths.root.path);
   }
 
+  /// Resolves [input] to a project-relative path.
+  ///
+  /// #### Throws
+  /// - [ArgumentError] if [input] is outside the project root.
   String resolvePath(String input) {
     return normalizeRelativePath(rootPath: paths.root.path, inputPath: input);
   }
 
+  /// Parses [value] as an integer for a CLI argument named [name].
+  ///
+  /// #### Throws
+  /// - [UsageException] if the value is not a valid integer.
   int parseInt(String value, String name) {
     final parsed = int.tryParse(value);
     if (parsed == null) {
@@ -29,6 +42,9 @@ abstract class BaseCommand extends Command<void> {
     return parsed;
   }
 
+  /// Parses [value] into epoch milliseconds when possible.
+  ///
+  /// Accepts raw digits (seconds or milliseconds) or ISO-8601 timestamps.
   int? parseTimestamp(String? value) {
     if (value == null) return null;
     final trimmed = value.trim();
@@ -46,11 +62,13 @@ abstract class BaseCommand extends Command<void> {
     return parsedDate?.millisecondsSinceEpoch;
   }
 
+  /// Formats [timestampMs] as a local ISO-8601 string.
   String formatTimestamp(int timestampMs) {
     final dt = DateTime.fromMillisecondsSinceEpoch(timestampMs);
     return dt.toLocal().toIso8601String();
   }
 
+  /// Ensures the `.lh/` entry exists in the project `.gitignore`.
   Future<void> ensureGitignore() async {
     final io = this.io;
     final gitignore = File(p.join(paths.root.path, '.gitignore'));

@@ -1,3 +1,4 @@
+/// Seeder registry entrypoint for Local History.
 // ignore: depend_on_referenced_packages
 import 'package:ormed_cli/runtime.dart';
 import 'package:ormed/ormed.dart';
@@ -40,6 +41,7 @@ Future<void> runProjectSeeds(
   );
 }
 
+/// Runs the seeder registry entrypoint for the CLI.
 Future<void> main(List<String> args) => runSeedRegistryEntrypoint(
   args: args,
   seeds: seeders,

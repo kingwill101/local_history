@@ -1,3 +1,4 @@
+/// CLI tests for core commands.
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -7,6 +8,7 @@ import 'package:test/test.dart';
 
 import 'support/cli_harness.dart';
 
+/// Runs CLI command tests.
 void main() {
   Future<Directory> createProject() async {
     final dir = await Directory.systemTemp.createTemp('lh_cli_cmds');

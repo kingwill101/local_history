@@ -1,8 +1,10 @@
-
+/// CLI command that searches across revision history.
 import '../history_db.dart';
 import 'base_command.dart';
 
+/// Searches historical text revisions.
 class SearchCommand extends BaseCommand {
+  /// Creates the search command and registers CLI options.
   SearchCommand() {
     argParser
       ..addOption('file', help: 'Filter by file path')
@@ -11,12 +13,15 @@ class SearchCommand extends BaseCommand {
       ..addOption('limit', help: 'Limit results (default 200)');
   }
 
+  /// Command name for `lh search`.
   @override
   String get name => 'search';
 
+  /// Command description for `lh search`.
   @override
   String get description => 'Search across historical text revisions.';
 
+  /// Runs the search command.
   @override
   Future<void> run() async {
     final io = this.io;

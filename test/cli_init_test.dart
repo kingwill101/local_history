@@ -1,3 +1,4 @@
+/// CLI tests for `lh init`.
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -5,6 +6,7 @@ import 'package:test/test.dart';
 
 import 'support/cli_harness.dart';
 
+/// Runs init command tests.
 void main() {
   test('lh init creates .lh directory and config', () async {
     final tempDir = await Directory.systemTemp.createTemp('lh_cli_test');

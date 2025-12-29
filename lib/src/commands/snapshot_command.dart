@@ -1,3 +1,4 @@
+/// CLI command that captures a snapshot of tracked files.
 import 'dart:io';
 
 import 'package:args/command_runner.dart' as args;
@@ -9,7 +10,9 @@ import '../project_config.dart';
 import '../snapshotter.dart';
 import 'base_command.dart';
 
+/// Creates a snapshot across all currently watched files.
 class SnapshotCommand extends BaseCommand {
+  /// Creates the snapshot command and registers CLI options.
   SnapshotCommand() {
     argParser
       ..addOption('label', help: 'Optional snapshot label')
@@ -20,12 +23,15 @@ class SnapshotCommand extends BaseCommand {
       ..addOption('write-batch', help: 'Override snapshot write batch size.');
   }
 
+  /// Command name for `lh snapshot`.
   @override
   String get name => 'snapshot';
 
+  /// Command description for `lh snapshot`.
   @override
   String get description => 'Create a snapshot of all currently watched files.';
 
+  /// Runs the snapshot command.
   @override
   Future<void> run() async {
     final io = this.io;

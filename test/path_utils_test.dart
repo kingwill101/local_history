@@ -1,6 +1,8 @@
+/// Tests for path utility helpers.
 import 'package:local_history/src/path_utils.dart';
 import 'package:test/test.dart';
 
+/// Runs path utility tests.
 void main() {
   test('normalizeRelativePath resolves within root', () {
     final root = '/tmp/project';

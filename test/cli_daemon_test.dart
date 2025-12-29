@@ -1,3 +1,4 @@
+/// CLI tests for the daemon command.
 import 'dart:io';
 
 import 'package:local_history/local_history.dart';
@@ -6,6 +7,7 @@ import 'package:test/test.dart';
 
 import 'support/cli_harness.dart';
 
+/// Runs CLI daemon tests.
 void main() {
   Future<Directory> createProject() async {
     final dir = await Directory.systemTemp.createTemp('lh_cli_daemon');

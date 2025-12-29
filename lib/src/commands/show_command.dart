@@ -1,20 +1,24 @@
+/// CLI command that shows a revision payload.
 import 'dart:io';
-
-
 import '../history_db.dart';
 import 'base_command.dart';
 
+/// Shows a revision by id.
 class ShowCommand extends BaseCommand {
+  /// Creates the show command and registers CLI options.
   ShowCommand() {
     argParser.addFlag('raw', help: 'Output raw bytes');
   }
 
+  /// Command name for `lh show`.
   @override
   String get name => 'show';
 
+  /// Command description for `lh show`.
   @override
   String get description => 'Show a specific revision by id.';
 
+  /// Runs the show command.
   @override
   Future<void> run() async {
     final io = this.io;

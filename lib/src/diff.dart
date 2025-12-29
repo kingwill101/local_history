@@ -1,6 +1,11 @@
+/// Unified diff helpers for text revisions.
 import 'package:deviation/deviation.dart';
 import 'package:deviation/unified_diff.dart';
 
+/// Returns a unified diff between [oldText] and [newText].
+///
+/// [oldLabel] and [newLabel] label the diff headers, and [contextLines]
+/// controls the number of surrounding lines shown.
 String unifiedDiff({
   required String oldText,
   required String newText,

@@ -1,11 +1,12 @@
+/// CLI command that restores a snapshot to disk.
 import 'dart:io';
-
-
 import '../history_db.dart';
 import '../path_utils.dart';
 import 'base_command.dart';
 
+/// Restores all files from a snapshot by id or label.
 class SnapshotRestoreCommand extends BaseCommand {
+  /// Creates the snapshot-restore command and registers CLI options.
   SnapshotRestoreCommand() {
     argParser
       ..addFlag('force', help: 'Skip confirmation prompt')
@@ -13,12 +14,15 @@ class SnapshotRestoreCommand extends BaseCommand {
       ..addOption('label', help: 'Snapshot label to restore');
   }
 
+  /// Command name for `lh snapshot-restore`.
   @override
   String get name => 'snapshot-restore';
 
+  /// Command description for `lh snapshot-restore`.
   @override
   String get description => 'Restore a snapshot by id or label.';
 
+  /// Runs the snapshot-restore command.
   @override
   Future<void> run() async {
     final io = this.io;
@@ -29,10 +33,7 @@ class SnapshotRestoreCommand extends BaseCommand {
     final rest = argResults!.rest;
 
     if (rawId != null && rawLabel != null) {
-      throw usageException(
-        'Provide either --id or --label, not both.',
-        
-      );
+      throw usageException('Provide either --id or --label, not both.');
     }
 
     int? snapshotId;

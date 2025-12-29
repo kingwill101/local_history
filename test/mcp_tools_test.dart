@@ -1,3 +1,4 @@
+/// Tests for MCP tool handlers.
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -6,6 +7,7 @@ import 'package:local_history/local_history.dart';
 import 'package:local_history/src/mcp_server.dart';
 import 'package:test/test.dart';
 
+/// Runs MCP tool tests.
 void main() {
   Future<Directory> createProject() async {
     final dir = await Directory.systemTemp.createTemp('lh_mcp_tools');

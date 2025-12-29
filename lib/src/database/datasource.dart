@@ -1,3 +1,4 @@
+/// Data source bootstrapping for Local History database access.
 import 'package:ormed/ormed.dart';
 import 'package:local_history/orm_registry.g.dart';
 import 'package:ormed_sqlite/ormed_sqlite.dart';

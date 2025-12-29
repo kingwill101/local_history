@@ -1,8 +1,11 @@
+/// Migration that adds snapshot tables.
 import 'package:ormed/migrations.dart';
 
+/// Adds `snapshots` and `snapshot_revisions` tables.
 class AddSnapshots extends Migration {
   const AddSnapshots();
 
+  /// Applies the migration.
   @override
   void up(SchemaBuilder schema) {
     schema.create('snapshots', (table) {
@@ -30,6 +33,7 @@ class AddSnapshots extends Migration {
     });
   }
 
+  /// Rolls back the migration.
   @override
   void down(SchemaBuilder schema) {
     schema.drop('snapshot_revisions', ifExists: true);

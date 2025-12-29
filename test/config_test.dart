@@ -1,8 +1,10 @@
+/// Tests for project configuration parsing.
 import 'dart:io';
 
 import 'package:local_history/local_history.dart';
 import 'package:test/test.dart';
 
+/// Runs configuration tests.
 void main() {
   test('default config writes and loads', () async {
     final tempDir = await Directory.systemTemp.createTemp('lh_config_test');

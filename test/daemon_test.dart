@@ -1,3 +1,4 @@
+/// Tests for the Local History daemon.
 import 'dart:async';
 import 'dart:io';
 
@@ -6,6 +7,7 @@ import 'package:local_history/src/fs_watcher.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+/// Runs daemon tests.
 void main() {
   Future<Directory> createProject() async {
     final dir = await Directory.systemTemp.createTemp('lh_daemon');
@@ -187,5 +189,10 @@ void main() {
     await controller.close();
     await runFuture;
     await db.close();
+  });
+
+  test('daemon process liveness detects current pid', () {
+    expect(Daemon.isProcessAlive(pid), true);
+    expect(Daemon.isProcessAlive(-1), false);
   });
 }

@@ -1,3 +1,4 @@
+/// Public exports for the Local History SDK.
 library;
 
 export 'src/cli.dart' show runCli;

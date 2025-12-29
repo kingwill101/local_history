@@ -1,8 +1,11 @@
+/// Migration that renames the revisions FTS index.
 import 'package:ormed/migrations.dart';
 
+/// Renames the FTS index to match current naming conventions.
 class RenameRevisionsFtsIndex extends Migration {
   const RenameRevisionsFtsIndex();
 
+  /// Applies the migration.
   @override
   void up(SchemaBuilder schema) {
     schema.table('revisions', (table) {
@@ -14,6 +17,7 @@ class RenameRevisionsFtsIndex extends Migration {
     });
   }
 
+  /// Rolls back the migration.
   @override
   void down(SchemaBuilder schema) {
     schema.table('revisions', (table) {

@@ -1,18 +1,23 @@
-
+/// CLI command that lists revision history for a file.
 import '../history_db.dart';
 import 'base_command.dart';
 
+/// Lists revision history for a file path.
 class HistoryCommand extends BaseCommand {
+  /// Creates the history command and registers CLI options.
   HistoryCommand() {
     argParser.addOption('limit', help: 'Limit number of revisions returned');
   }
 
+  /// Command name for `lh history`.
   @override
   String get name => 'history';
 
+  /// Command description for `lh history`.
   @override
   String get description => 'List history for a file path.';
 
+  /// Runs the history command.
   @override
   Future<void> run() async {
     final io = this.io;

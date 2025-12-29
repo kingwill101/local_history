@@ -1,8 +1,11 @@
+/// Migration that creates the initial history tables.
 import 'package:ormed_sqlite/migrations.dart';
 
+/// Creates the `files` and `revisions` tables.
 class CreateHistoryTables extends Migration {
   const CreateHistoryTables();
 
+  /// Applies the migration.
   @override
   void up(SchemaBuilder schema) {
     schema.create('files', (table) {
@@ -29,6 +32,7 @@ class CreateHistoryTables extends Migration {
     });
   }
 
+  /// Rolls back the migration.
   @override
   void down(SchemaBuilder schema) {
     schema.table('revisions', (table) {

@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish (defaults to ref name).'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    name: Build Release (${{ matrix.os }} ${{ matrix.arch }})
+    runs-on: ${{ matrix.runs_on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            arch: x64
+            runs_on: ubuntu-latest
+          - os: linux
+            arch: arm64
+            runs_on: ubuntu-24.04-arm64
+          - os: macos
+            arch: x64
+            runs_on: macos-13
+          - os: macos
+            arch: arm64
+            runs_on: macos-14
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+
+      - name: Install dependencies
+        run: dart pub get
+
+      - name: Run tests
+        run: dart test
+
+      - name: Build CLI
+        run: |
+          dart build cli
+
+      - name: Package CLI
+        run: |
+          mkdir -p dist
+          cp build/cli/${{ matrix.os }}_${{ matrix.arch }}/bundle/bin/local_history dist/lh
+          tar -czf lh-${{ matrix.os }}-${{ matrix.arch }}.tar.gz -C dist lh
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          files: lh-${{ matrix.os }}-${{ matrix.arch }}.tar.gz

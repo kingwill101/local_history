@@ -1,3 +1,4 @@
+/// CLI test harness for invoking Local History commands.
 import 'dart:async';
 import 'dart:io';
 
@@ -20,20 +21,28 @@ import 'package:local_history/src/cli.dart'
         VerifyCommand;
 import 'package:path/path.dart' as p;
 
+/// Result of running the CLI harness.
 class CliResult {
+  /// Creates a CLI result.
   CliResult({
     required this.exitCode,
     required this.stdout,
     required this.stderr,
   });
 
+  /// Process exit code.
   final int exitCode;
+
+  /// Captured standard output.
   final String stdout;
+
+  /// Captured standard error.
   final String stderr;
 }
 
 Future<void> _cliQueue = Future.value();
 
+/// Runs the CLI with [args] in [cwd] and returns the captured result.
 Future<CliResult> runCliHarness(
   List<String> args, {
   required Directory cwd,

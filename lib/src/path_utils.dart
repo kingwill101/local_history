@@ -1,7 +1,13 @@
+/// Path normalization helpers for Local History.
 import 'package:path/path.dart' as p;
 
+/// Returns [path] with Windows separators normalized to `/`.
 String toPosixPath(String path) => path.replaceAll('\\', '/');
 
+/// Converts [inputPath] into a project-relative POSIX path.
+///
+/// #### Throws
+/// - [ArgumentError] if [inputPath] resolves outside [rootPath].
 String normalizeRelativePath({
   required String rootPath,
   required String inputPath,
@@ -18,6 +24,7 @@ String normalizeRelativePath({
   return posix;
 }
 
+/// Resolves [relativePath] against [rootPath] as a normalized absolute path.
 String resolveAbsolutePath({
   required String rootPath,
   required String relativePath,

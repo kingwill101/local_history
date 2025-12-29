@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test-build:
+    name: Test + Build (${{ matrix.os }} ${{ matrix.arch }})
+    runs-on: ${{ matrix.runs_on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            arch: x64
+            runs_on: ubuntu-latest
+          - os: linux
+            arch: arm64
+            runs_on: ubuntu-24.04-arm64
+          - os: macos
+            arch: x64
+            runs_on: macos-13
+          - os: macos
+            arch: arm64
+            runs_on: macos-14
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+
+      - name: Install dependencies
+        run: dart pub get
+
+      - name: Run tests
+        run: dart test
+
+      - name: Build CLI
+        run: |
+          dart build cli
+
+      - name: Upload CLI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lh-${{ matrix.os }}-${{ matrix.arch }}
+          path: build/cli/${{ matrix.os }}_${{ matrix.arch }}/bundle/bin/local_history

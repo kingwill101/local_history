@@ -1,3 +1,4 @@
+/// Tests for HistoryDb behavior.
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -6,6 +7,7 @@ import 'package:local_history/local_history.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+/// Runs HistoryDb tests.
 void main() {
   test('history database stores and searches revisions', () async {
     final tempDir = await Directory.systemTemp.createTemp('lh_db_test');

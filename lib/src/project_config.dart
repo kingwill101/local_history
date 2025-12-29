@@ -1,3 +1,4 @@
+/// Configuration models and helpers for Local History projects.
 import 'dart:io';
 
 import 'package:glob/glob.dart';
@@ -6,33 +7,50 @@ import 'package:yaml/yaml.dart';
 
 import 'path_utils.dart';
 
+/// File watching settings for a Local History project.
 class WatchConfig {
+  /// Creates a watch configuration.
   WatchConfig({
     required this.recursive,
     required this.include,
     required this.exclude,
   });
 
+  /// Whether the watcher should include subdirectories.
   final bool recursive;
+
+  /// Glob patterns that are eligible for tracking.
   final List<String> include;
+
+  /// Glob patterns that should be excluded from tracking.
   final List<String> exclude;
 }
 
+/// Retention and size limits for tracked files and revisions.
 class LimitsConfig {
+  /// Creates a limits configuration.
   LimitsConfig({
     required this.maxRevisionsPerFile,
     required this.maxDays,
     required this.maxFileSizeMb,
   });
 
+  /// Maximum revisions to keep per file.
   final int maxRevisionsPerFile;
+
+  /// Maximum number of days to retain revisions.
   final int maxDays;
+
+  /// Maximum file size in megabytes to snapshot.
   final int maxFileSizeMb;
 
+  /// Maximum file size in bytes to snapshot.
   int get maxFileSizeBytes => maxFileSizeMb * 1024 * 1024;
 }
 
+/// Configuration for a Local History project.
 class ProjectConfig {
+  /// Creates a project configuration.
   ProjectConfig({
     required this.rootPath,
     required this.version,
@@ -45,20 +63,38 @@ class ProjectConfig {
        _excludeGlobs = _buildGlobs(watch.exclude),
        _normalizedTextExtensions = _normalizeExtensions(textExtensions);
 
+  /// Absolute project root path.
   final String rootPath;
+
+  /// Config schema version.
   final int version;
+
+  /// Filesystem watch settings.
   final WatchConfig watch;
+
+  /// Retention limits.
   final LimitsConfig limits;
+
+  /// File extensions treated as text for search indexing.
   final List<String> textExtensions;
+
+  /// Default parallelism used by snapshots.
   final int snapshotConcurrency;
+
+  /// Default write batch size used by snapshots.
   final int snapshotWriteBatch;
 
   final List<Glob> _includeGlobs;
   final List<Glob> _excludeGlobs;
   final List<String> _normalizedTextExtensions;
 
+  /// Current configuration schema version.
   static const int currentVersion = 1;
+
+  /// Default include patterns for watching.
   static const List<String> defaultInclude = ['**'];
+
+  /// Default exclude patterns for watching.
   static const List<String> defaultExclude = [
     '.git/**',
     '.lh/**',
@@ -75,6 +111,8 @@ class ProjectConfig {
     '**/.*',
     '**/.*/**',
   ];
+
+  /// Default extensions treated as text.
   static const List<String> defaultTextExtensions = [
     '.dart',
     '.js',
@@ -84,9 +122,14 @@ class ProjectConfig {
     '.md',
     '.txt',
   ];
+
+  /// Default snapshot concurrency.
   static final int defaultSnapshotConcurrency = _defaultSnapshotConcurrency();
+
+  /// Default snapshot write batch size.
   static const int defaultSnapshotWriteBatch = 64;
 
+  /// Creates the default config for [rootPath].
   static ProjectConfig defaults({required String rootPath}) => ProjectConfig(
     rootPath: rootPath,
     version: currentVersion,
@@ -105,6 +148,10 @@ class ProjectConfig {
     snapshotWriteBatch: defaultSnapshotWriteBatch,
   );
 
+  /// Loads config from [configFile] for the project at [rootPath].
+  ///
+  /// #### Throws
+  /// - [StateError] if the config file is missing.
   static Future<ProjectConfig> load(
     File configFile, {
     required String rootPath,
@@ -116,6 +163,10 @@ class ProjectConfig {
     return fromYamlString(content, rootPath: rootPath);
   }
 
+  /// Parses YAML [yaml] into a [ProjectConfig].
+  ///
+  /// #### Throws
+  /// - [FormatException] if the YAML does not map to a config object.
   static ProjectConfig fromYamlString(String yaml, {required String rootPath}) {
     final doc = loadYaml(yaml);
     if (doc is! YamlMap) {
@@ -172,6 +223,7 @@ class ProjectConfig {
     );
   }
 
+  /// Serializes this config to YAML.
   String toYamlString() {
     final buffer = StringBuffer();
     buffer.writeln('version: $version');
@@ -198,11 +250,13 @@ class ProjectConfig {
     return buffer.toString();
   }
 
+  /// Writes this config to [configFile].
   Future<void> save(File configFile) async {
     await configFile.create(recursive: true);
     await configFile.writeAsString(toYamlString());
   }
 
+  /// Returns whether [relativePath] is included by the glob rules.
   bool isPathIncluded(String relativePath) {
     final normalized = p.posix.normalize(toPosixPath(relativePath));
     final matchesInclude =
@@ -214,6 +268,7 @@ class ProjectConfig {
     return matchesInclude && !matchesExclude;
   }
 
+  /// Returns whether [relativePath] should be indexed as text.
   bool isTextPath(String relativePath) {
     final ext = p.extension(relativePath).toLowerCase();
     return _normalizedTextExtensions.contains(ext);

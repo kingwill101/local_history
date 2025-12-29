@@ -1,3 +1,4 @@
+/// CLI entry utilities for the Local History command runner.
 import 'dart:io';
 
 import 'package:artisanal/artisanal.dart';
@@ -20,6 +21,9 @@ export 'commands/index.dart'
         ShowCommand,
         VerifyCommand;
 
+/// Runs the `lh` CLI with [args] and returns the resulting exit code.
+///
+/// If [workingDirectory] is set, commands resolve project paths relative to it.
 Future<int> runCli(List<String> args, {Directory? workingDirectory}) async {
   final previousOverride = BaseCommand.rootOverride;
   if (workingDirectory != null) {

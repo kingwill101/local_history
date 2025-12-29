@@ -1,12 +1,13 @@
+/// CLI command that verifies revision checksums.
 import 'dart:convert';
 import 'dart:io';
-
-
 import '../history_db.dart';
 import '../history_models.dart';
 import 'base_command.dart';
 
+/// Verifies stored revision checksums.
 class VerifyCommand extends BaseCommand {
+  /// Creates the verify command and registers CLI options.
   VerifyCommand() {
     argParser
       ..addFlag('all', help: 'Verify all revisions in the database')
@@ -14,12 +15,15 @@ class VerifyCommand extends BaseCommand {
       ..addFlag('quiet', help: 'Suppress human-readable output');
   }
 
+  /// Command name for `lh verify`.
   @override
   String get name => 'verify';
 
+  /// Command description for `lh verify`.
   @override
   String get description => 'Verify a revision checksum.';
 
+  /// Runs the verify command.
   @override
   Future<void> run() async {
     final io = this.io;

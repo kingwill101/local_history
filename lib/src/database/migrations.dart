@@ -1,3 +1,4 @@
+/// Migration registry and tooling for the Local History database.
 import 'dart:convert';
 
 import 'package:ormed/migrations.dart';
@@ -44,6 +45,7 @@ MigrationEntry? _findEntry(String rawId) {
   return null;
 }
 
+/// Prints migration metadata for tooling when invoked from the CLI.
 void main(List<String> args) {
   if (args.contains('--dump-json')) {
     final payload = buildMigrations().map((m) => m.toJson()).toList();

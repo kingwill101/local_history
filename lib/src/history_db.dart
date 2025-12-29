@@ -1,3 +1,4 @@
+/// ORM-backed access to the Local History database.
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -15,13 +16,22 @@ import 'database/models/snapshot_record.dart';
 import 'database/models/snapshot_revision_record.dart';
 import 'history_models.dart';
 
+/// Provides database operations for Local History revisions and snapshots.
 class HistoryDb {
   HistoryDb._(this.path, this._dataSource, this._adapter);
 
+  /// Filesystem path to the database file.
   final String path;
   final DataSource _dataSource;
   final SqliteDriverAdapter _adapter;
 
+  /// Opens a history database at [path].
+  ///
+  /// Set [createIfMissing] to create and migrate the database if it does not
+  /// exist.
+  ///
+  /// #### Throws
+  /// - [StateError] if the database is missing and [createIfMissing] is `false`.
   static Future<HistoryDb> open(
     String path, {
     bool createIfMissing = false,
@@ -67,8 +77,10 @@ class HistoryDb {
     await adapter.executeRaw('PRAGMA synchronous = NORMAL');
   }
 
+  /// Closes the underlying database connection.
   Future<void> close() => _dataSource.dispose();
 
+  /// Returns the file id for [path], or `null` if it is unknown.
   Future<int?> getFileId(String path) async {
     final record = await _dataSource
         .query<FileRecord>()
@@ -90,6 +102,9 @@ class HistoryDb {
     return record!.fileId!;
   }
 
+  /// Inserts a revision for [path] and returns the revision id.
+  ///
+  /// Returns `0` when the content matches the last stored checksum.
   Future<int> insertRevision({
     required String path,
     required int timestampMs,
@@ -131,6 +146,9 @@ class HistoryDb {
     });
   }
 
+  /// Inserts snapshot revisions for [writes] and links them to [snapshotId].
+  ///
+  /// Returns the list of revision ids that were created.
   Future<List<int>> insertSnapshotBatch({
     required int snapshotId,
     required List<RevisionWrite> writes,
@@ -226,6 +244,9 @@ class HistoryDb {
     });
   }
 
+  /// Returns revision summaries for [path], newest first.
+  ///
+  /// If [limit] is provided, only that many revisions are returned.
   Future<List<HistoryEntry>> listHistory(String path, {int? limit}) async {
     final fileId = await getFileId(path);
     if (fileId == null) return const [];
@@ -250,6 +271,7 @@ class HistoryDb {
         .toList(growable: false);
   }
 
+  /// Returns the revision payload for [revId], or `null` if not found.
   Future<HistoryRevision?> getRevision(int revId) async {
     final revision = await _dataSource
         .query<RevisionRecord>()
@@ -276,6 +298,9 @@ class HistoryDb {
     );
   }
 
+  /// Runs a full-text search across revision content.
+  ///
+  /// Filter by [path], [sinceMs], or [untilMs] to narrow results.
   Future<List<SearchResult>> search({
     required String query,
     String? path,
@@ -330,6 +355,7 @@ LIMIT ?
         .toList(growable: false);
   }
 
+  /// Updates the label for revision [revId].
   Future<void> labelRevision(int revId, String label) async {
     await _dataSource
         .query<RevisionRecord>()
@@ -337,6 +363,7 @@ LIMIT ?
         .update({'label': label});
   }
 
+  /// Updates the stored checksum for revision [revId].
   Future<void> updateRevisionChecksum(int revId, List<int>? checksum) async {
     await _dataSource
         .query<RevisionRecord>()
@@ -344,6 +371,10 @@ LIMIT ?
         .update({'checksum': checksum});
   }
 
+  /// Creates a snapshot and returns its metadata.
+  ///
+  /// #### Throws
+  /// - [StateError] if [label] is already in use.
   Future<SnapshotInfo> createSnapshot({String? label}) async {
     if (label != null) {
       final existing = await getSnapshotByLabel(label);
@@ -366,6 +397,7 @@ LIMIT ?
     );
   }
 
+  /// Returns snapshot metadata for [snapshotId], or `null` if missing.
   Future<SnapshotInfo?> getSnapshotById(int snapshotId) async {
     final record = await _dataSource
         .query<SnapshotRecord>()
@@ -374,6 +406,7 @@ LIMIT ?
     return _snapshotFromRecord(record);
   }
 
+  /// Returns snapshot metadata for [label], or `null` if missing.
   Future<SnapshotInfo?> getSnapshotByLabel(String label) async {
     final record = await _dataSource
         .query<SnapshotRecord>()
@@ -382,6 +415,7 @@ LIMIT ?
     return _snapshotFromRecord(record);
   }
 
+  /// Links revision [revId] to snapshot [snapshotId].
   Future<void> linkSnapshotRevision(int snapshotId, int revId) async {
     await _dataSource.repo<SnapshotRevisionRecord>().upsert(
       SnapshotRevisionRecord(snapshotId: snapshotId, revId: revId),
@@ -389,6 +423,7 @@ LIMIT ?
     );
   }
 
+  /// Returns revisions linked to [snapshotId], sorted by path.
   Future<List<HistoryRevision>> listSnapshotRevisions(int snapshotId) async {
     final result = <HistoryRevision>[];
     await _dataSource
@@ -438,6 +473,7 @@ LIMIT ?
     return result;
   }
 
+  /// Deletes old revisions based on [maxDays] and [maxRevisionsPerFile].
   Future<void> gc({int? maxDays, int? maxRevisionsPerFile}) async {
     await _dataSource.transaction(() async {
       if (maxDays != null && maxDays > 0) {
@@ -479,11 +515,13 @@ LIMIT ?
     });
   }
 
+  /// Compacts the database file.
   Future<void> vacuum() async {
     // TODO: Replace raw SQL VACUUM once Ormed provides a higher-level API.
     await _adapter.executeRaw('VACUUM');
   }
 
+  /// Verifies the checksum for revision [revId].
   Future<VerifyResult> verifyRevisionChecksum(int revId) async {
     final revision = await _dataSource
         .query<RevisionRecord>()
@@ -503,6 +541,7 @@ LIMIT ?
     );
   }
 
+  /// Verifies checksums for all stored revisions.
   Future<VerifySummary> verifyAllRevisions() async {
     var ok = 0;
     var missing = 0;
@@ -537,7 +576,9 @@ LIMIT ?
   }
 }
 
+/// Describes a revision write operation for batch inserts.
 class RevisionWrite {
+  /// Creates a batch revision write.
   RevisionWrite({
     required this.path,
     required this.content,
@@ -545,9 +586,16 @@ class RevisionWrite {
     this.label,
   });
 
+  /// Project-relative file path to write.
   final String path;
+
+  /// Raw file contents.
   final Uint8List content;
+
+  /// Optional decoded text content.
   final String? contentText;
+
+  /// Optional label to apply to the revision.
   final String? label;
 }
 

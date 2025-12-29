@@ -1,14 +1,19 @@
+/// CLI command that initializes Local History for a project.
 import '../history_db.dart';
 import '../project_config.dart';
 import 'base_command.dart';
 
+/// Initializes `.lh` metadata and the history database.
 class InitCommand extends BaseCommand {
+  /// Command name for `lh init`.
   @override
   String get name => 'init';
 
+  /// Command description for `lh init`.
   @override
   String get description => 'Initialize local history in the current project.';
 
+  /// Runs the initialization workflow.
   @override
   Future<void> run() async {
     final io = this.io;

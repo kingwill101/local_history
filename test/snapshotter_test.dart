@@ -1,3 +1,4 @@
+/// Tests for snapshotter behavior.
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -6,6 +7,7 @@ import 'package:local_history/src/snapshotter.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+/// Runs snapshotter tests.
 void main() {
   Future<Directory> createProject() async {
     final dir = await Directory.systemTemp.createTemp('lh_snapshot');

@@ -1,3 +1,4 @@
+/// Daemon process that watches the filesystem and records revisions.
 import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
@@ -11,9 +12,14 @@ import 'history_db.dart';
 import 'project_config.dart';
 import 'snapshotter.dart';
 
+/// Runs the Local History watcher daemon.
 class Daemon {
   static final Set<String> _processLocks = <String>{};
+
+  /// Exit code used when the daemon lock is already held.
   static const int lockExitCode = 75;
+
+  /// Reads the PID recorded in [lockFile], if present.
   static Future<int?> readLockPid(File lockFile) async {
     try {
       final contents = await lockFile.readAsString();
@@ -27,14 +33,25 @@ class Daemon {
     }
   }
 
+  /// Returns whether [processId] appears to be alive on this system.
   static bool isProcessAlive(int processId) {
     if (processId <= 0) return false;
     if (Platform.isLinux) {
       return Directory('/proc/$processId').existsSync();
     }
-    return true;
+    if (Platform.isMacOS) {
+      return _probeKill(processId);
+    }
+    if (Platform.isWindows) {
+      return _probeTasklist(processId);
+    }
+    return _probeKill(processId);
   }
 
+  /// Acquires an exclusive lock for [lockFile] and returns its handle.
+  ///
+  /// #### Throws
+  /// - [StateError] if another daemon already holds the lock.
   static Future<RandomAccessFile> acquireLockHandle(File lockFile) async {
     final lockPath = lockFile.absolute.path;
     if (_processLocks.contains(lockPath)) {
@@ -92,6 +109,7 @@ class Daemon {
     return handle;
   }
 
+  /// Releases a previously acquired lock [handle] and deletes [lockFile].
   static Future<void> releaseLockHandle(
     File lockFile,
     RandomAccessFile? handle,
@@ -110,6 +128,7 @@ class Daemon {
     }
   }
 
+  /// Creates a daemon configured for [config] and [db].
   Daemon({
     required this.config,
     required this.db,
@@ -136,7 +155,10 @@ class Daemon {
     }
   }
 
+  /// Active configuration used by the daemon.
   ProjectConfig config;
+
+  /// Database handle used to persist revisions.
   final HistoryDb db;
   final Console? _io;
   final Duration _debounceWindow;
@@ -159,6 +181,10 @@ class Daemon {
   bool _workerRunning = false;
   late Snapshotter _snapshotter;
 
+  /// Starts watching for filesystem changes and persists revisions.
+  ///
+  /// Provide [events] in tests to inject a custom stream. If [maxEvents] is set,
+  /// the daemon stops after handling that many events.
   Future<void> run({Stream<FsEvent>? events, int? maxEvents}) async {
     if (!_lockAcquired) {
       await _acquireLock();
@@ -370,4 +396,28 @@ class _WorkItem {
 
   final String path;
   final FsEventType type;
+}
+
+bool _probeKill(int processId) {
+  try {
+    final result = Process.runSync('kill', ['-0', '$processId']);
+    return result.exitCode == 0;
+  } catch (_) {
+    return false;
+  }
+}
+
+bool _probeTasklist(int processId) {
+  try {
+    final result = Process.runSync('tasklist', [
+      '/FI',
+      'PID eq $processId',
+    ], runInShell: true);
+    if (result.exitCode != 0) return false;
+    final output = '${result.stdout}'.toLowerCase();
+    if (output.contains('no tasks are running')) return false;
+    return output.contains('$processId');
+  } catch (_) {
+    return false;
+  }
 }

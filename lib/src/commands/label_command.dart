@@ -1,14 +1,18 @@
-
+/// CLI command that labels a revision.
 import '../history_db.dart';
 import 'base_command.dart';
 
+/// Applies a label to a revision.
 class LabelCommand extends BaseCommand {
+  /// Command name for `lh label`.
   @override
   String get name => 'label';
 
+  /// Command description for `lh label`.
   @override
   String get description => 'Label a revision.';
 
+  /// Runs the label command.
   @override
   Future<void> run() async {
     final io = this.io;

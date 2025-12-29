@@ -1,10 +1,13 @@
+/// CLI command that diffs two revisions.
 import 'package:artisanal/artisanal.dart';
 
 import '../diff.dart';
 import '../history_db.dart';
 import 'base_command.dart';
 
+/// Shows a unified diff between two revisions.
 class DiffCommand extends BaseCommand {
+  /// Creates the diff command and registers CLI options.
   DiffCommand() {
     argParser
       ..addOption(
@@ -18,13 +21,16 @@ class DiffCommand extends BaseCommand {
       );
   }
 
+  /// Command name for `lh diff`.
   @override
   String get name => 'diff';
 
+  /// Command description for `lh diff`.
   @override
   String get description =>
       'Show a unified diff between two revisions (old then new).';
 
+  /// Runs the diff command.
   @override
   Future<void> run() async {
     if (argResults == null || argResults!.rest.length < 2) {

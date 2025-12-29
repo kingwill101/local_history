@@ -1,3 +1,4 @@
+/// MCP server for read-only Local History access.
 import 'dart:async';
 import 'dart:io';
 
@@ -9,7 +10,9 @@ import 'history_models.dart';
 import 'path_utils.dart';
 import 'project_paths.dart';
 
+/// MCP server that exposes Local History read-only tools over stdio.
 final class LocalHistoryMcpServer extends MCPServer with ToolsSupport {
+  /// Creates an MCP server rooted at [rootPath].
   LocalHistoryMcpServer(
     super.channel, {
     required String rootPath,
@@ -31,13 +34,17 @@ final class LocalHistoryMcpServer extends MCPServer with ToolsSupport {
     registerTool(tools.revisionVerifyTool, tools.handleRevisionVerify);
   }
 
+  /// Absolute root path for this MCP server.
   final String rootPath;
 }
 
+/// Tool definitions and handlers for Local History MCP.
 class LocalHistoryMcpTools {
+  /// Creates tool helpers rooted at [rootPath].
   LocalHistoryMcpTools({required String rootPath})
     : rootPath = Directory(rootPath).absolute.path;
 
+  /// Absolute root path for resolving file inputs.
   final String rootPath;
 
   ProjectPaths get _paths => ProjectPaths(Directory(rootPath));
@@ -48,6 +55,7 @@ class LocalHistoryMcpTools {
     openWorldHint: false,
   );
 
+  /// Tool definition for listing revision history.
   Tool get historyListTool => Tool(
     name: 'lh_history_list',
     description: 'List revision history for a file path.',
@@ -80,6 +88,7 @@ class LocalHistoryMcpTools {
     annotations: _readOnlyAnnotations,
   );
 
+  /// Tool definition for showing a revision by id.
   Tool get revisionShowTool => Tool(
     name: 'lh_revision_show',
     description: 'Show a revision by id.',
@@ -101,6 +110,7 @@ class LocalHistoryMcpTools {
     annotations: _readOnlyAnnotations,
   );
 
+  /// Tool definition for diffing two revisions.
   Tool get revisionDiffTool => Tool(
     name: 'lh_revision_diff',
     description: 'Diff two text revisions.',
@@ -125,6 +135,7 @@ class LocalHistoryMcpTools {
     annotations: _readOnlyAnnotations,
   );
 
+  /// Tool definition for searching historical revisions.
   Tool get historySearchTool => Tool(
     name: 'lh_history_search',
     description: 'Search across historical text revisions.',
@@ -158,6 +169,7 @@ class LocalHistoryMcpTools {
     annotations: _readOnlyAnnotations,
   );
 
+  /// Tool definition for verifying a revision checksum.
   Tool get revisionVerifyTool => Tool(
     name: 'lh_revision_verify',
     description: 'Verify a revision checksum.',
@@ -172,6 +184,7 @@ class LocalHistoryMcpTools {
     annotations: _readOnlyAnnotations,
   );
 
+  /// Handles `lh_history_list` requests.
   FutureOr<CallToolResult> handleHistoryList(CallToolRequest request) async {
     final args = request.arguments ?? const {};
     final rawPath = _requireString(args, 'path');
@@ -209,6 +222,7 @@ class LocalHistoryMcpTools {
     });
   }
 
+  /// Handles `lh_revision_show` requests.
   FutureOr<CallToolResult> handleRevisionShow(CallToolRequest request) async {
     final args = request.arguments ?? const {};
     final revId = _requireInt(args, 'revId');
@@ -239,6 +253,7 @@ class LocalHistoryMcpTools {
     });
   }
 
+  /// Handles `lh_revision_diff` requests.
   FutureOr<CallToolResult> handleRevisionDiff(CallToolRequest request) async {
     final args = request.arguments ?? const {};
     final revA = _requireInt(args, 'revA');
@@ -278,6 +293,7 @@ class LocalHistoryMcpTools {
     });
   }
 
+  /// Handles `lh_history_search` requests.
   FutureOr<CallToolResult> handleHistorySearch(CallToolRequest request) async {
     final args = request.arguments ?? const {};
     final query = _requireString(args, 'query');
@@ -320,6 +336,7 @@ class LocalHistoryMcpTools {
     });
   }
 
+  /// Handles `lh_revision_verify` requests.
   FutureOr<CallToolResult> handleRevisionVerify(CallToolRequest request) async {
     final args = request.arguments ?? const {};
     final revId = _requireInt(args, 'revId');

@@ -1,3 +1,4 @@
+/// CLI command that starts the MCP server over stdio.
 import 'dart:io';
 
 import 'package:dart_mcp/stdio.dart';
@@ -5,7 +6,9 @@ import 'package:dart_mcp/stdio.dart';
 import '../mcp_server.dart';
 import 'base_command.dart';
 
+/// Starts the MCP server for Local History read-only tools.
 class McpCommand extends BaseCommand {
+  /// Creates the MCP command and registers CLI options.
   McpCommand() {
     argParser
       ..addOption(
@@ -19,12 +22,15 @@ class McpCommand extends BaseCommand {
       );
   }
 
+  /// Command name for `lh mcp`.
   @override
   String get name => 'mcp';
 
+  /// Command description for `lh mcp`.
   @override
   String get description => 'Start the MCP server over stdio (read-only).';
 
+  /// Runs the MCP command.
   @override
   Future<void> run() async {
     if (argResults == null) return;

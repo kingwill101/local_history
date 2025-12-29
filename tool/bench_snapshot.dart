@@ -1,3 +1,4 @@
+/// Snapshot benchmark tool for Local History.
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
@@ -5,6 +6,7 @@ import 'dart:math';
 import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
 
+/// Runs the snapshot benchmark with CLI-configured parameters.
 Future<void> main(List<String> args) async {
   final parser = ArgParser()
     ..addOption(
