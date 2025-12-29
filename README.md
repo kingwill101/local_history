@@ -68,12 +68,19 @@ For each tracked file change, Local History records a **revision** with:
 - `change_type` (`create`, `modify`, `delete`)
 - `content` (raw bytes)
 - `content_text` (decoded text for search/diff, when applicable)
+- `content_text_raw` (decoded text retained for deferred indexing)
 - `checksum` (SHA-256 of raw bytes)
 
 ### Text vs binary
 A file is considered text when its extension appears in `text_extensions`.
 Text revisions are decoded as UTF-8 (with fallback for malformed bytes) and
 indexed for search. Binary revisions are stored as raw bytes only.
+
+### Deferred indexing
+By default, revisions are indexed for search immediately. When
+`indexing_mode: deferred`, revisions keep their decoded text in
+`content_text_raw` until `lh reindex` is run. Searches will not return deferred
+revisions until they are indexed.
 
 ### Concurrency model
 - One daemon (single writer) per project
@@ -87,6 +94,11 @@ saves into a single revision.
 ### Duplicate suppression
 If a file is saved without any content changes, Local History skips inserting a
 new revision (based on checksum).
+
+### Incremental snapshots
+Snapshots compare file metadata (mtime + size) and skip unchanged files by
+default. Use `lh snapshot --full` to force reading every file or
+`--modified-only` to explicitly opt into incremental behavior.
 
 ### Config reload
 While the daemon is running, changes to `.lh/config.yaml` are detected and
@@ -158,6 +170,9 @@ limits:
   max_file_size_mb: 5
 snapshot_concurrency: 4
 snapshot_write_batch: 64
+snapshot_incremental: true
+indexing_mode: immediate
+fts_batch_size: 500
 text_extensions:
   - ".dart"
   - ".js"
@@ -176,6 +191,11 @@ text_extensions:
   `lh snapshot`. CLI `--concurrency` overrides this value.
 - `snapshot_write_batch` controls how many revisions are committed per
   transaction during `lh snapshot`. CLI `--write-batch` overrides this value.
+- `snapshot_incremental` skips unchanged files by comparing mtime and size.
+- `indexing_mode` controls whether full-text search indexing happens
+  immediately (`immediate`) or waits for `lh reindex` (`deferred`).
+- `fts_batch_size` controls how many revisions are indexed per batch during
+  `lh reindex`. CLI `--batch` overrides this value.
 
 ## CLI Reference
 
@@ -290,6 +310,23 @@ Timestamp parsing rules:
 - All digits, 11+ -> milliseconds
 - ISO8601 strings -> parsed as time
 
+### `lh reindex`
+Process deferred full-text indexing.
+
+```
+lh reindex --pending
+lh reindex --all
+```
+
+Options:
+- `--pending` Index pending revisions (default)
+- `--all` Rebuild the full-text index
+- `--batch <n>` Override indexing batch size
+
+Notes:
+- Required when `indexing_mode: deferred` to make new revisions searchable.
+- `--all` rebuilds the entire index for recovery scenarios.
+
 ### `lh label <rev_id> "message"`
 Label a revision with a message.
 
@@ -320,6 +357,8 @@ lh snapshot
 
 Options:
 - `--label <name>` Assign a unique label to the snapshot
+- `--full` Read all files even if metadata is unchanged
+- `--modified-only` Only snapshot files with metadata changes
 - `--concurrency <n>` Override snapshot worker count for file reads
 - `--write-batch <n>` Override snapshot write batch size
 
@@ -328,6 +367,7 @@ Notes:
 - Snapshot respects include/exclude rules and file size limits.
 - A snapshot records the current revision of each included file and links
   them to the snapshot record.
+- Incremental snapshots skip unchanged files by default.
 
 ### `lh snapshot-restore`
 Restore a snapshot by id or label.
@@ -565,4 +605,5 @@ Add the file extension to `text_extensions` in `.lh/config.yaml`.
 
 ### Search returns no results
 Only text revisions are indexed. Ensure the file is treated as text and that
-changes are captured by the daemon.
+changes are captured by the daemon. If `indexing_mode: deferred` is enabled,
+run `lh reindex --pending` to index recent revisions.
