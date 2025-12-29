@@ -156,6 +156,8 @@ limits:
   max_revisions_per_file: 200
   max_days: 30
   max_file_size_mb: 5
+snapshot_concurrency: 4
+snapshot_write_batch: 64
 text_extensions:
   - ".dart"
   - ".js"
@@ -170,6 +172,10 @@ text_extensions:
 - Paths are matched as POSIX-style relative paths (`lib/main.dart`).
 - To include hidden files, remove the `.*` and `**/.*` excludes.
 - Files larger than `max_file_size_mb` are skipped.
+- `snapshot_concurrency` controls how many files are read in parallel during
+  `lh snapshot`. CLI `--concurrency` overrides this value.
+- `snapshot_write_batch` controls how many revisions are committed per
+  transaction during `lh snapshot`. CLI `--write-batch` overrides this value.
 
 ## CLI Reference
 
@@ -314,6 +320,8 @@ lh snapshot
 
 Options:
 - `--label <name>` Assign a unique label to the snapshot
+- `--concurrency <n>` Override snapshot worker count for file reads
+- `--write-batch <n>` Override snapshot write batch size
 
 Notes:
 - Snapshot labels must be unique.
@@ -420,6 +428,39 @@ lh snapshot-restore --label pre-refactor
 lh verify 120
 lh verify --all --json
 ```
+
+## Benchmarking
+
+Use the snapshot benchmark script to measure snapshot performance across many
+files and sizes. It generates a temporary project, runs `lh init`, then
+measures `lh snapshot`.
+
+Build the CLI first so the benchmark can call the compiled binary:
+
+```bash
+dart run build_runner build --delete-conflicting-outputs
+# or your normal build pipeline that produces:
+# build/cli/linux_x64/bundle/bin/local_history
+```
+
+Run the benchmark:
+
+```bash
+dart run tool/bench_snapshot.dart --files 1000 --max-size-mb 5 \\
+  --min-size-kb 1 --workers 8 --concurrency 8 --write-batch 64 \\
+  --lh-bin ./build/cli/linux_x64/bundle/bin/local_history
+```
+
+Options:
+- `--files` number of files (default 1000)
+- `--max-size-mb` max size per file (default 5)
+- `--min-size-kb` min size per file (default 1)
+- `--workers` file generation worker count (default 4)
+- `--concurrency` passes `--concurrency` to `lh snapshot`
+- `--write-batch` passes `--write-batch` to `lh snapshot`
+- `--lh-bin` path to compiled `lh` binary (defaults to build output)
+- `--seed` deterministic file generation
+- `--keep` keep the generated temp directory
 
 ## Sample Output
 

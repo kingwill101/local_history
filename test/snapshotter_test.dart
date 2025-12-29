@@ -54,6 +54,8 @@ void main() {
         maxFileSizeMb: 0,
       ),
       textExtensions: const ['.dart'],
+      snapshotConcurrency: 1,
+      snapshotWriteBatch: 8,
     );
     final dbPath = p.join(dir.path, '.lh', 'history.db');
     final db = await HistoryDb.open(dbPath, createIfMissing: true);
@@ -86,6 +88,8 @@ void main() {
         maxFileSizeMb: 1,
       ),
       textExtensions: const ['.txt'],
+      snapshotConcurrency: 1,
+      snapshotWriteBatch: 8,
     );
     final dbPath = p.join(dir.path, '.lh', 'history.db');
     final db = await HistoryDb.open(dbPath, createIfMissing: true);
@@ -119,6 +123,8 @@ void main() {
         maxFileSizeMb: 5,
       ),
       textExtensions: const ['.txt'],
+      snapshotConcurrency: 1,
+      snapshotWriteBatch: 8,
     );
     final dbPath = p.join(dir.path, '.lh', 'history.db');
     final db = await HistoryDb.open(dbPath, createIfMissing: true);

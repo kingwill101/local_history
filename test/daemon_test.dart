@@ -100,6 +100,8 @@ void main() {
         maxFileSizeMb: 5,
       ),
       textExtensions: const ['.dart', '.js', '.ts', '.json', '.yaml', '.md'],
+      snapshotConcurrency: 2,
+      snapshotWriteBatch: 8,
     );
     await initial.save(configFile);
 
@@ -133,6 +135,8 @@ void main() {
       ),
       limits: initial.limits,
       textExtensions: [...initial.textExtensions, '.txt'],
+      snapshotConcurrency: 3,
+      snapshotWriteBatch: 8,
     );
     await updated.save(configFile);
 

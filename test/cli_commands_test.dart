@@ -142,6 +142,66 @@ void main() {
     expect(depHistory.isEmpty, true);
   });
 
+  test('lh snapshot supports concurrency override', () async {
+    final dir = await createProject();
+    await runCliHarness(['init'], cwd: dir);
+
+    final paths = ProjectPaths(dir);
+    final config = ProjectConfig.defaults(rootPath: dir.path);
+    final updated = ProjectConfig(
+      rootPath: config.rootPath,
+      version: config.version,
+      watch: config.watch,
+      limits: config.limits,
+      textExtensions: config.textExtensions,
+      snapshotConcurrency: 1,
+      snapshotWriteBatch: 4,
+    );
+    await updated.save(paths.configFile);
+
+    final file = File(p.join(dir.path, 'lib', 'main.dart'));
+    await file.parent.create(recursive: true);
+    await file.writeAsString('hello');
+
+    final result = await runCliHarness([
+      'snapshot',
+      '--concurrency',
+      '2',
+    ], cwd: dir);
+    expect(result.exitCode, 0);
+
+    final db = await HistoryDb.open(paths.dbFile.path);
+    final history = await db.listHistory('lib/main.dart');
+    await db.close();
+    expect(history.length, 1);
+  });
+
+  test('lh snapshot rejects invalid concurrency', () async {
+    final dir = await createProject();
+    await runCliHarness(['init'], cwd: dir);
+
+    final result = await runCliHarness([
+      'snapshot',
+      '--concurrency',
+      '0',
+    ], cwd: dir);
+    expect(result.exitCode, isNot(0));
+    expect(result.stdout + result.stderr, contains('Invalid concurrency'));
+  });
+
+  test('lh snapshot rejects invalid write batch', () async {
+    final dir = await createProject();
+    await runCliHarness(['init'], cwd: dir);
+
+    final result = await runCliHarness([
+      'snapshot',
+      '--write-batch',
+      '0',
+    ], cwd: dir);
+    expect(result.exitCode, isNot(0));
+    expect(result.stdout + result.stderr, contains('Invalid write batch'));
+  });
+
   test(
     'lh snapshot restore restores snapshot files and keeps new files',
     () async {

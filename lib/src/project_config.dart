@@ -39,6 +39,8 @@ class ProjectConfig {
     required this.watch,
     required this.limits,
     required this.textExtensions,
+    required this.snapshotConcurrency,
+    required this.snapshotWriteBatch,
   }) : _includeGlobs = _buildGlobs(watch.include),
        _excludeGlobs = _buildGlobs(watch.exclude),
        _normalizedTextExtensions = _normalizeExtensions(textExtensions);
@@ -48,6 +50,8 @@ class ProjectConfig {
   final WatchConfig watch;
   final LimitsConfig limits;
   final List<String> textExtensions;
+  final int snapshotConcurrency;
+  final int snapshotWriteBatch;
 
   final List<Glob> _includeGlobs;
   final List<Glob> _excludeGlobs;
@@ -80,6 +84,8 @@ class ProjectConfig {
     '.md',
     '.txt',
   ];
+  static final int defaultSnapshotConcurrency = _defaultSnapshotConcurrency();
+  static const int defaultSnapshotWriteBatch = 64;
 
   static ProjectConfig defaults({required String rootPath}) => ProjectConfig(
     rootPath: rootPath,
@@ -95,6 +101,8 @@ class ProjectConfig {
       maxFileSizeMb: 5,
     ),
     textExtensions: defaultTextExtensions,
+    snapshotConcurrency: defaultSnapshotConcurrency,
+    snapshotWriteBatch: defaultSnapshotWriteBatch,
   );
 
   static Future<ProjectConfig> load(
@@ -140,12 +148,27 @@ class ProjectConfig {
       fallback: defaultTextExtensions,
     );
 
+    final snapshotConcurrency = _readInt(
+      map['snapshot_concurrency'],
+      fallback: defaultSnapshotConcurrency,
+    );
+    final snapshotWriteBatch = _readInt(
+      map['snapshot_write_batch'],
+      fallback: defaultSnapshotWriteBatch,
+    );
+
     return ProjectConfig(
       rootPath: rootPath,
       version: version,
       watch: watch,
       limits: limits,
       textExtensions: textExtensions,
+      snapshotConcurrency: snapshotConcurrency < 1
+          ? defaultSnapshotConcurrency
+          : snapshotConcurrency,
+      snapshotWriteBatch: snapshotWriteBatch < 1
+          ? defaultSnapshotWriteBatch
+          : snapshotWriteBatch,
     );
   }
 
@@ -166,6 +189,8 @@ class ProjectConfig {
     buffer.writeln('  max_revisions_per_file: ${limits.maxRevisionsPerFile}');
     buffer.writeln('  max_days: ${limits.maxDays}');
     buffer.writeln('  max_file_size_mb: ${limits.maxFileSizeMb}');
+    buffer.writeln('snapshot_concurrency: $snapshotConcurrency');
+    buffer.writeln('snapshot_write_batch: $snapshotWriteBatch');
     buffer.writeln('text_extensions:');
     for (final ext in textExtensions) {
       buffer.writeln('  - "${_escapeYaml(ext)}"');
@@ -210,6 +235,13 @@ class ProjectConfig {
               ext.startsWith('.') ? ext.toLowerCase() : '.${ext.toLowerCase()}',
         )
         .toList(growable: false);
+  }
+
+  static int _defaultSnapshotConcurrency() {
+    final cores = Platform.numberOfProcessors;
+    final safe = cores <= 0 ? 4 : cores;
+    final capped = safe < 4 ? safe : 4;
+    return capped < 1 ? 1 : capped;
   }
 }
 

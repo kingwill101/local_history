@@ -1,15 +1,23 @@
 import 'dart:io';
 
+import 'package:args/command_runner.dart' as args;
 
 import '../history_db.dart';
 import '../history_models.dart';
 import '../path_utils.dart';
+import '../project_config.dart';
 import '../snapshotter.dart';
 import 'base_command.dart';
 
 class SnapshotCommand extends BaseCommand {
   SnapshotCommand() {
-    argParser.addOption('label', help: 'Optional snapshot label');
+    argParser
+      ..addOption('label', help: 'Optional snapshot label')
+      ..addOption(
+        'concurrency',
+        help: 'Override snapshot worker count (file reads).',
+      )
+      ..addOption('write-batch', help: 'Override snapshot write batch size.');
   }
 
   @override
@@ -27,7 +35,17 @@ class SnapshotCommand extends BaseCommand {
     }
     final rawLabel = argResults!['label'] as String?;
     final label = rawLabel?.trim().isEmpty ?? true ? null : rawLabel!.trim();
+    final concurrencyRaw = argResults!['concurrency'] as String?;
+    final writeBatchRaw = argResults!['write-batch'] as String?;
     final config = await loadConfig();
+    final concurrency = _resolveConcurrency(
+      config: config,
+      rawOverride: concurrencyRaw,
+    );
+    final writeBatchSize = _resolveWriteBatch(
+      config: config,
+      rawOverride: writeBatchRaw,
+    );
     final db = await HistoryDb.open(paths.dbFile.path);
     late final SnapshotInfo snapshot;
     try {
@@ -39,10 +57,44 @@ class SnapshotCommand extends BaseCommand {
     }
 
     final snapshotter = Snapshotter(config: config, db: db);
+    final fileIdCache = <String, int>{};
 
     var scanned = 0;
     var stored = 0;
     var skipped = 0;
+
+    final batch = <String>[];
+    final writeBuffer = <RevisionWrite>[];
+    Future<void> flushBatch() async {
+      if (batch.isEmpty) return;
+      final payloads = await Future.wait(batch.map(snapshotter.readSnapshot));
+      for (var index = 0; index < batch.length; index += 1) {
+        scanned += 1;
+        final payload = payloads[index];
+        if (payload == null) {
+          skipped += 1;
+          continue;
+        }
+        writeBuffer.add(
+          RevisionWrite(
+            path: payload.path,
+            content: payload.content,
+            contentText: payload.contentText,
+          ),
+        );
+      }
+      while (writeBuffer.length >= writeBatchSize) {
+        final current = writeBuffer.sublist(0, writeBatchSize);
+        writeBuffer.removeRange(0, writeBatchSize);
+        final revIds = await db.insertSnapshotBatch(
+          snapshotId: snapshot.snapshotId,
+          writes: current,
+          fileIdCache: fileIdCache,
+        );
+        stored += revIds.length;
+      }
+      batch.clear();
+    }
 
     await for (final entity in Directory(
       config.rootPath,
@@ -58,14 +110,20 @@ class SnapshotCommand extends BaseCommand {
         skipped += 1;
         continue;
       }
-      scanned += 1;
-      final revId = await snapshotter.snapshotPath(relativePath);
-      if (revId != null) {
-        await db.linkSnapshotRevision(snapshot.snapshotId, revId);
-        stored += 1;
-      } else {
-        skipped += 1;
+      batch.add(relativePath);
+      if (batch.length >= concurrency) {
+        await flushBatch();
       }
+    }
+    await flushBatch();
+    if (writeBuffer.isNotEmpty) {
+      final revIds = await db.insertSnapshotBatch(
+        snapshotId: snapshot.snapshotId,
+        writes: writeBuffer,
+        fileIdCache: fileIdCache,
+      );
+      stored += revIds.length;
+      writeBuffer.clear();
     }
 
     await db.close();
@@ -74,4 +132,40 @@ class SnapshotCommand extends BaseCommand {
       '($scanned files scanned, $skipped skipped).',
     );
   }
+}
+
+int _resolveConcurrency({
+  required ProjectConfig config,
+  required String? rawOverride,
+}) {
+  if (rawOverride == null) {
+    return config.snapshotConcurrency;
+  }
+  final trimmed = rawOverride.trim();
+  if (trimmed.isEmpty) {
+    throw args.UsageException('Invalid concurrency value.', '');
+  }
+  final parsed = int.tryParse(trimmed);
+  if (parsed == null || parsed < 1) {
+    throw args.UsageException('Invalid concurrency value: $rawOverride', '');
+  }
+  return parsed;
+}
+
+int _resolveWriteBatch({
+  required ProjectConfig config,
+  required String? rawOverride,
+}) {
+  if (rawOverride == null) {
+    return config.snapshotWriteBatch;
+  }
+  final trimmed = rawOverride.trim();
+  if (trimmed.isEmpty) {
+    throw args.UsageException('Invalid write batch value.', '');
+  }
+  final parsed = int.tryParse(trimmed);
+  if (parsed == null || parsed < 1) {
+    throw args.UsageException('Invalid write batch value: $rawOverride', '');
+  }
+  return parsed;
 }

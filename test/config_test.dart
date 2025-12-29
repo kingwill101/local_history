@@ -22,6 +22,8 @@ void main() {
     expect(loaded.watch.exclude, config.watch.exclude);
     expect(loaded.limits.maxDays, config.limits.maxDays);
     expect(loaded.textExtensions, config.textExtensions);
+    expect(loaded.snapshotConcurrency, config.snapshotConcurrency);
+    expect(loaded.snapshotWriteBatch, config.snapshotWriteBatch);
   });
 
   test('config filters paths and normalizes extensions', () {
@@ -39,6 +41,8 @@ void main() {
         maxFileSizeMb: 5,
       ),
       textExtensions: const ['dart', '.MD'],
+      snapshotConcurrency: 2,
+      snapshotWriteBatch: 16,
     );
 
     expect(config.isPathIncluded('lib/main.dart'), true);

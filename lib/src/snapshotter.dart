@@ -6,13 +6,25 @@ import 'history_db.dart';
 import 'project_config.dart';
 import 'path_utils.dart';
 
+class SnapshotPayload {
+  SnapshotPayload({
+    required this.path,
+    required this.content,
+    required this.contentText,
+  });
+
+  final String path;
+  final Uint8List content;
+  final String? contentText;
+}
+
 class Snapshotter {
   Snapshotter({required this.config, required this.db});
 
   final ProjectConfig config;
   final HistoryDb db;
 
-  Future<int?> snapshotPath(String relativePath) async {
+  Future<SnapshotPayload?> readSnapshot(String relativePath) async {
     final absolutePath = resolveAbsolutePath(
       rootPath: config.rootPath,
       relativePath: relativePath,
@@ -31,20 +43,35 @@ class Snapshotter {
 
     final bytes = await file.readAsBytes();
     final contentText = _maybeDecodeText(relativePath, bytes);
-    final fileId = await db.getFileId(relativePath);
-    final changeType = fileId == null ? 'create' : 'modify';
-
-    final revId = await db.insertRevision(
+    return SnapshotPayload(
       path: relativePath,
-      timestampMs: DateTime.now().millisecondsSinceEpoch,
-      changeType: changeType,
       content: Uint8List.fromList(bytes),
       contentText: contentText,
+    );
+  }
+
+  Future<int?> writeSnapshot(SnapshotPayload payload) async {
+    final fileId = await db.getFileId(payload.path);
+    final changeType = fileId == null ? 'create' : 'modify';
+    final revId = await db.insertRevision(
+      path: payload.path,
+      timestampMs: DateTime.now().millisecondsSinceEpoch,
+      changeType: changeType,
+      content: payload.content,
+      contentText: payload.contentText,
     );
     if (revId <= 0) {
       return null;
     }
     return revId;
+  }
+
+  Future<int?> snapshotPath(String relativePath) async {
+    final payload = await readSnapshot(relativePath);
+    if (payload == null) {
+      return null;
+    }
+    return writeSnapshot(payload);
   }
 
   Future<void> snapshotDelete(String relativePath) async {
