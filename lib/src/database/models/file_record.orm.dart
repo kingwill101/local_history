@@ -31,6 +31,18 @@ const FieldDefinition _$FileRecordPathField = FieldDefinition(
   autoIncrement: false,
 );
 
+const FieldDefinition _$FileRecordLastChecksumField = FieldDefinition(
+  name: 'lastChecksum',
+  columnName: 'last_checksum',
+  dartType: 'List<int>',
+  resolvedType: 'List<int>?',
+  isPrimaryKey: false,
+  isNullable: true,
+  isUnique: false,
+  isIndexed: false,
+  autoIncrement: false,
+);
+
 Map<String, Object?> _encodeFileRecordUntracked(
   Object model,
   ValueCodecRegistry registry,
@@ -39,13 +51,21 @@ Map<String, Object?> _encodeFileRecordUntracked(
   return <String, Object?>{
     'file_id': registry.encodeField(_$FileRecordFileIdField, m.fileId),
     'path': registry.encodeField(_$FileRecordPathField, m.path),
+    'last_checksum': registry.encodeField(
+      _$FileRecordLastChecksumField,
+      m.lastChecksum,
+    ),
   };
 }
 
 final ModelDefinition<$FileRecord> _$FileRecordDefinition = ModelDefinition(
   modelName: 'FileRecord',
   tableName: 'files',
-  fields: const [_$FileRecordFileIdField, _$FileRecordPathField],
+  fields: const [
+    _$FileRecordFileIdField,
+    _$FileRecordPathField,
+    _$FileRecordLastChecksumField,
+  ],
   relations: const [],
   softDeleteColumn: 'deleted_at',
   metadata: ModelAttributesMetadata(
@@ -168,6 +188,10 @@ class _$FileRecordCodec extends ModelCodec<$FileRecord> {
     return <String, Object?>{
       'file_id': registry.encodeField(_$FileRecordFileIdField, model.fileId),
       'path': registry.encodeField(_$FileRecordPathField, model.path),
+      'last_checksum': registry.encodeField(
+        _$FileRecordLastChecksumField,
+        model.lastChecksum,
+      ),
     };
   }
 
@@ -180,13 +204,20 @@ class _$FileRecordCodec extends ModelCodec<$FileRecord> {
     final String fileRecordPathValue =
         registry.decodeField<String>(_$FileRecordPathField, data['path']) ??
         (throw StateError('Field path on FileRecord cannot be null.'));
+    final List<int>? fileRecordLastChecksumValue = registry
+        .decodeField<List<int>?>(
+          _$FileRecordLastChecksumField,
+          data['last_checksum'],
+        );
     final model = $FileRecord(
       fileId: fileRecordFileIdValue,
       path: fileRecordPathValue,
+      lastChecksum: fileRecordLastChecksumValue,
     );
     model._attachOrmRuntimeMetadata({
       'file_id': fileRecordFileIdValue,
       'path': fileRecordPathValue,
+      'last_checksum': fileRecordLastChecksumValue,
     });
     return model;
   }
@@ -196,19 +227,29 @@ class _$FileRecordCodec extends ModelCodec<$FileRecord> {
 ///
 /// Auto-increment/DB-generated fields are omitted by default.
 class FileRecordInsertDto implements InsertDto<$FileRecord> {
-  const FileRecordInsertDto({this.path});
+  const FileRecordInsertDto({this.path, this.lastChecksum});
   final String? path;
+  final List<int>? lastChecksum;
 
   @override
   Map<String, Object?> toMap() {
-    return <String, Object?>{if (path != null) 'path': path};
+    return <String, Object?>{
+      if (path != null) 'path': path,
+      if (lastChecksum != null) 'last_checksum': lastChecksum,
+    };
   }
 
   static const _FileRecordInsertDtoCopyWithSentinel _copyWithSentinel =
       _FileRecordInsertDtoCopyWithSentinel();
-  FileRecordInsertDto copyWith({Object? path = _copyWithSentinel}) {
+  FileRecordInsertDto copyWith({
+    Object? path = _copyWithSentinel,
+    Object? lastChecksum = _copyWithSentinel,
+  }) {
     return FileRecordInsertDto(
       path: identical(path, _copyWithSentinel) ? this.path : path as String?,
+      lastChecksum: identical(lastChecksum, _copyWithSentinel)
+          ? this.lastChecksum
+          : lastChecksum as List<int>?,
     );
   }
 }
@@ -221,15 +262,17 @@ class _FileRecordInsertDtoCopyWithSentinel {
 ///
 /// All fields are optional; only provided entries are used in SET clauses.
 class FileRecordUpdateDto implements UpdateDto<$FileRecord> {
-  const FileRecordUpdateDto({this.fileId, this.path});
+  const FileRecordUpdateDto({this.fileId, this.path, this.lastChecksum});
   final int? fileId;
   final String? path;
+  final List<int>? lastChecksum;
 
   @override
   Map<String, Object?> toMap() {
     return <String, Object?>{
       if (fileId != null) 'file_id': fileId,
       if (path != null) 'path': path,
+      if (lastChecksum != null) 'last_checksum': lastChecksum,
     };
   }
 
@@ -238,12 +281,16 @@ class FileRecordUpdateDto implements UpdateDto<$FileRecord> {
   FileRecordUpdateDto copyWith({
     Object? fileId = _copyWithSentinel,
     Object? path = _copyWithSentinel,
+    Object? lastChecksum = _copyWithSentinel,
   }) {
     return FileRecordUpdateDto(
       fileId: identical(fileId, _copyWithSentinel)
           ? this.fileId
           : fileId as int?,
       path: identical(path, _copyWithSentinel) ? this.path : path as String?,
+      lastChecksum: identical(lastChecksum, _copyWithSentinel)
+          ? this.lastChecksum
+          : lastChecksum as List<int>?,
     );
   }
 }
@@ -256,7 +303,7 @@ class _FileRecordUpdateDtoCopyWithSentinel {
 ///
 /// All fields are nullable; intended for subset SELECTs.
 class FileRecordPartial implements PartialEntity<$FileRecord> {
-  const FileRecordPartial({this.fileId, this.path});
+  const FileRecordPartial({this.fileId, this.path, this.lastChecksum});
 
   /// Creates a partial from a database row map.
   ///
@@ -266,11 +313,13 @@ class FileRecordPartial implements PartialEntity<$FileRecord> {
     return FileRecordPartial(
       fileId: row['file_id'] as int?,
       path: row['path'] as String?,
+      lastChecksum: row['last_checksum'] as List<int>?,
     );
   }
 
   final int? fileId;
   final String? path;
+  final List<int>? lastChecksum;
 
   @override
   $FileRecord toEntity() {
@@ -279,7 +328,11 @@ class FileRecordPartial implements PartialEntity<$FileRecord> {
     if (pathValue == null) {
       throw StateError('Missing required field: path');
     }
-    return $FileRecord(fileId: fileId, path: pathValue);
+    return $FileRecord(
+      fileId: fileId,
+      path: pathValue,
+      lastChecksum: lastChecksum,
+    );
   }
 
   @override
@@ -287,6 +340,7 @@ class FileRecordPartial implements PartialEntity<$FileRecord> {
     return {
       if (fileId != null) 'file_id': fileId,
       if (path != null) 'path': path,
+      if (lastChecksum != null) 'last_checksum': lastChecksum,
     };
   }
 
@@ -295,12 +349,16 @@ class FileRecordPartial implements PartialEntity<$FileRecord> {
   FileRecordPartial copyWith({
     Object? fileId = _copyWithSentinel,
     Object? path = _copyWithSentinel,
+    Object? lastChecksum = _copyWithSentinel,
   }) {
     return FileRecordPartial(
       fileId: identical(fileId, _copyWithSentinel)
           ? this.fileId
           : fileId as int?,
       path: identical(path, _copyWithSentinel) ? this.path : path as String?,
+      lastChecksum: identical(lastChecksum, _copyWithSentinel)
+          ? this.lastChecksum
+          : lastChecksum as List<int>?,
     );
   }
 }
@@ -319,18 +377,30 @@ class _FileRecordPartialCopyWithSentinel {
 /// or model factories to create tracked model instances.
 class $FileRecord extends FileRecord with ModelAttributes implements OrmEntity {
   /// Internal constructor for [$FileRecord].
-  $FileRecord({int? fileId, required String path})
-    : super.new(fileId: fileId, path: path) {
-    _attachOrmRuntimeMetadata({'file_id': fileId, 'path': path});
+  $FileRecord({int? fileId, required String path, List<int>? lastChecksum})
+    : super.new(fileId: fileId, path: path, lastChecksum: lastChecksum) {
+    _attachOrmRuntimeMetadata({
+      'file_id': fileId,
+      'path': path,
+      'last_checksum': lastChecksum,
+    });
   }
 
   /// Creates a tracked model instance from a user-defined model instance.
   factory $FileRecord.fromModel(FileRecord model) {
-    return $FileRecord(fileId: model.fileId, path: model.path);
+    return $FileRecord(
+      fileId: model.fileId,
+      path: model.path,
+      lastChecksum: model.lastChecksum,
+    );
   }
 
-  $FileRecord copyWith({int? fileId, String? path}) {
-    return $FileRecord(fileId: fileId ?? this.fileId, path: path ?? this.path);
+  $FileRecord copyWith({int? fileId, String? path, List<int>? lastChecksum}) {
+    return $FileRecord(
+      fileId: fileId ?? this.fileId,
+      path: path ?? this.path,
+      lastChecksum: lastChecksum ?? this.lastChecksum,
+    );
   }
 
   /// Tracked getter for [fileId].
@@ -346,6 +416,14 @@ class $FileRecord extends FileRecord with ModelAttributes implements OrmEntity {
 
   /// Tracked setter for [path].
   set path(String value) => setAttribute('path', value);
+
+  /// Tracked getter for [lastChecksum].
+  @override
+  List<int>? get lastChecksum =>
+      getAttribute<List<int>?>('last_checksum') ?? super.lastChecksum;
+
+  /// Tracked setter for [lastChecksum].
+  set lastChecksum(List<int>? value) => setAttribute('last_checksum', value);
 
   void _attachOrmRuntimeMetadata(Map<String, Object?> values) {
     replaceAttributes(values);

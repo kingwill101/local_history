@@ -100,7 +100,15 @@ class HistoryDb {
   }) async {
     final checksum = sha256.convert(content).bytes;
     return _dataSource.transaction(() async {
-      final fileId = await _ensureFileId(path);
+      final fileRecord = await _dataSource
+          .query<FileRecord>()
+          .whereEquals('path', path)
+          .first();
+      final existingChecksum = fileRecord?.lastChecksum;
+      if (existingChecksum != null && _listEquals(existingChecksum, checksum)) {
+        return 0;
+      }
+      final fileId = fileRecord?.fileId ?? await _ensureFileId(path);
       final inserted = await _dataSource.repo<RevisionRecord>().insert(
         RevisionRecord(
           fileId: fileId,
@@ -112,7 +120,109 @@ class HistoryDb {
           contentText: contentText,
         ),
       );
-      return inserted.revId ?? 0;
+      final revId = inserted.revId ?? 0;
+      if (revId > 0) {
+        await _dataSource
+            .query<FileRecord>()
+            .whereEquals('fileId', fileId)
+            .update({'lastChecksum': checksum});
+      }
+      return revId;
+    });
+  }
+
+  Future<List<int>> insertSnapshotBatch({
+    required int snapshotId,
+    required List<RevisionWrite> writes,
+    Map<String, int>? fileIdCache,
+  }) async {
+    if (writes.isEmpty) return const [];
+    final cache = fileIdCache ?? <String, int>{};
+    final knownExisting = <String>{...cache.keys};
+    final checksumCache = <String, List<int>?>{};
+
+    return _dataSource.transaction(() async {
+      final uniquePaths = writes
+          .map((write) => write.path)
+          .toSet()
+          .toList(growable: false);
+      final toLookup = uniquePaths
+          .where((path) => !cache.containsKey(path))
+          .toList(growable: false);
+
+      if (toLookup.isNotEmpty) {
+        final existing = await _dataSource
+            .query<FileRecord>()
+            .whereIn('path', toLookup)
+            .get();
+        for (final record in existing) {
+          final fileId = record.fileId;
+          if (fileId == null) continue;
+          cache[record.path] = fileId;
+          knownExisting.add(record.path);
+          checksumCache[record.path] = record.lastChecksum;
+        }
+      }
+
+      for (final path in toLookup) {
+        if (cache.containsKey(path)) continue;
+        await _dataSource.repo<FileRecord>().upsert(
+          FileRecord(path: path),
+          uniqueBy: ['path'],
+        );
+        final record = await _dataSource
+            .query<FileRecord>()
+            .whereEquals('path', path)
+            .first();
+        if (record?.fileId == null) {
+          throw StateError('Failed to resolve file id for $path');
+        }
+        cache[path] = record!.fileId!;
+        checksumCache[path] = record.lastChecksum;
+      }
+
+      final insertedIds = <int>[];
+      for (final write in writes) {
+        final fileId = cache[write.path];
+        if (fileId == null) {
+          continue;
+        }
+        final checksum = sha256.convert(write.content).bytes;
+        final lastChecksum = checksumCache[write.path];
+        if (lastChecksum != null && _listEquals(lastChecksum, checksum)) {
+          continue;
+        }
+        final changeType = knownExisting.contains(write.path)
+            ? 'modify'
+            : 'create';
+        final inserted = await _dataSource.repo<RevisionRecord>().insert(
+          RevisionRecord(
+            fileId: fileId,
+            timestampMs: DateTime.now().millisecondsSinceEpoch,
+            changeType: changeType,
+            label: write.label,
+            content: write.content.toList(growable: false),
+            checksum: checksum,
+            contentText: write.contentText,
+          ),
+        );
+        final revId = inserted.revId;
+        if (revId != null) {
+          insertedIds.add(revId);
+          await _dataSource.repo<SnapshotRevisionRecord>().upsert(
+            SnapshotRevisionRecord(snapshotId: snapshotId, revId: revId),
+            uniqueBy: ['snapshotId', 'revId'],
+          );
+          await _dataSource
+              .query<FileRecord>()
+              .whereEquals('fileId', fileId)
+              .update({'lastChecksum': checksum});
+          checksumCache[write.path] = checksum;
+          knownExisting.add(write.path);
+        }
+      }
+
+      return insertedIds;
     });
   }
 
@@ -280,47 +390,50 @@ LIMIT ?
   }
 
   Future<List<HistoryRevision>> listSnapshotRevisions(int snapshotId) async {
-    final links = await _dataSource
+    final result = <HistoryRevision>[];
+    await _dataSource
         .query<SnapshotRevisionRecord>()
         .whereEquals('snapshotId', snapshotId)
-        .get();
-    if (links.isEmpty) return const [];
-
-    final revIds = links.map((link) => link.revId).toList(growable: false);
-    final revisions = await _dataSource
-        .query<RevisionRecord>()
-        .whereIn('revId', revIds)
-        .get();
-    if (revisions.isEmpty) return const [];
-
-    final fileIds = revisions
-        .map((revision) => revision.fileId)
-        .toSet()
-        .toList(growable: false);
-    final files = await _dataSource
-        .query<FileRecord>()
-        .whereIn('fileId', fileIds)
-        .get();
-    final fileMap = <int, String>{
-      for (final file in files) file.fileId ?? 0: file.path,
-    };
-
-    final result = revisions
-        .map(
-          (revision) => HistoryRevision(
-            revId: revision.revId ?? 0,
-            path: fileMap[revision.fileId] ?? '',
-            timestampMs: revision.timestampMs,
-            changeType: revision.changeType,
-            label: revision.label,
-            content: Uint8List.fromList(revision.content),
-            contentText: revision.contentText,
-            checksum: revision.checksum == null
-                ? null
-                : Uint8List.fromList(revision.checksum!),
-          ),
-        )
-        .toList(growable: false);
+        .chunk(200, (rows) async {
+          if (rows.isEmpty) return false;
+          final revIds = rows
+              .map((row) => row.model.revId)
+              .toList(growable: false);
+          final revisions = await _dataSource
+              .query<RevisionRecord>()
+              .whereIn('revId', revIds)
+              .get();
+          if (revisions.isEmpty) return true;
+          final fileIds = revisions
+              .map((revision) => revision.fileId)
+              .toSet()
+              .toList(growable: false);
+          final files = await _dataSource
+              .query<FileRecord>()
+              .whereIn('fileId', fileIds)
+              .get();
+          final fileMap = <int, String>{
+            for (final file in files) file.fileId ?? 0: file.path,
+          };
+          result.addAll(
+            revisions.map(
+              (revision) => HistoryRevision(
+                revId: revision.revId ?? 0,
+                path: fileMap[revision.fileId] ?? '',
+                timestampMs: revision.timestampMs,
+                changeType: revision.changeType,
+                label: revision.label,
+                content: Uint8List.fromList(revision.content),
+                contentText: revision.contentText,
+                checksum: revision.checksum == null
+                    ? null
+                    : Uint8List.fromList(revision.checksum!),
+              ),
+            ),
+          );
+          return true;
+        });
+    if (result.isEmpty) return const [];
     result.sort((a, b) => a.path.compareTo(b.path));
     return result;
   }
@@ -337,22 +450,31 @@ LIMIT ?
             .delete();
       }
       if (maxRevisionsPerFile != null && maxRevisionsPerFile > 0) {
-        final files = await _dataSource.query<FileRecord>().get();
-        for (final file in files) {
-          final revisions = await _dataSource
-              .query<RevisionRecord>()
-              .whereEquals('fileId', file.fileId)
-              .orderBy('timestampMs', descending: true)
-              .get();
-          if (revisions.length <= maxRevisionsPerFile) continue;
-          final excess = revisions.sublist(maxRevisionsPerFile);
-          final ids = excess.map((rev) => rev.revId).whereType<int>().toList();
-          if (ids.isEmpty) continue;
-          await _dataSource
-              .query<RevisionRecord>()
-              .whereIn('revId', ids)
-              .delete();
-        }
+        await _dataSource.query<FileRecord>().chunk(100, (rows) async {
+          if (rows.isEmpty) return false;
+          for (final row in rows) {
+            final file = row.model;
+            final fileId = file.fileId;
+            if (fileId == null) continue;
+            final revisions = await _dataSource
+                .query<RevisionRecord>()
+                .whereEquals('fileId', fileId)
+                .orderBy('timestampMs', descending: true)
+                .get();
+            if (revisions.length <= maxRevisionsPerFile) continue;
+            final excess = revisions.sublist(maxRevisionsPerFile);
+            final ids = excess
+                .map((rev) => rev.revId)
+                .whereType<int>()
+                .toList();
+            if (ids.isEmpty) continue;
+            await _dataSource
+                .query<RevisionRecord>()
+                .whereIn('revId', ids)
+                .delete();
+          }
+          return true;
+        });
       }
     });
   }
@@ -382,31 +504,51 @@ LIMIT ?
   }
 
   Future<VerifySummary> verifyAllRevisions() async {
-    final revisions = await _dataSource.query<RevisionRecord>().get();
     var ok = 0;
     var missing = 0;
     var mismatch = 0;
-    for (final revision in revisions) {
-      if (revision.checksum == null || revision.checksum!.isEmpty) {
-        missing += 1;
-        continue;
+    var total = 0;
+    await _dataSource.query<RevisionRecord>().chunkById(200, (rows) async {
+      if (rows.isEmpty) return false;
+      for (final row in rows) {
+        final revision = row.model;
+        total += 1;
+        if (revision.checksum == null || revision.checksum!.isEmpty) {
+          missing += 1;
+          continue;
+        }
+        final checksum = sha256
+            .convert(Uint8List.fromList(revision.content))
+            .bytes;
+        if (_listEquals(revision.checksum!, checksum)) {
+          ok += 1;
+        } else {
+          mismatch += 1;
+        }
       }
-      final checksum = sha256
-          .convert(Uint8List.fromList(revision.content))
-          .bytes;
-      if (_listEquals(revision.checksum!, checksum)) {
-        ok += 1;
-      } else {
-        mismatch += 1;
-      }
-    }
+      return true;
+    });
     return VerifySummary(
-      total: revisions.length,
+      total: total,
       ok: ok,
       missingChecksum: missing,
       mismatch: mismatch,
     );
   }
+}
+
+class RevisionWrite {
+  RevisionWrite({
+    required this.path,
+    required this.content,
+    this.contentText,
+    this.label,
+  });
+
+  final String path;
+  final Uint8List content;
+  final String? contentText;
+  final String? label;
 }
 
 bool _listEquals(List<int> a, List<int> b) {

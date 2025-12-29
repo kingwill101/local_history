@@ -3,7 +3,7 @@ library;
 export 'src/cli.dart' show runCli;
 export 'src/daemon.dart' show Daemon;
 export 'src/diff.dart' show unifiedDiff;
-export 'src/history_db.dart' show HistoryDb;
+export 'src/history_db.dart' show HistoryDb, RevisionWrite;
 export 'src/history_models.dart'
     show
         HistoryEntry,

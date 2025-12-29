@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:artisanal/artisanal.dart';
 import 'package:watcher/watcher.dart';
@@ -149,9 +151,12 @@ class Daemon {
   int? _backoffUntilMs;
   bool _lockAcquired = false;
 
-  final Map<String, Timer> _timers = {};
   final Map<String, FsEventType> _pending = {};
-  final Map<String, Completer<void>> _pendingCompleters = {};
+  final Map<String, int> _pendingDeadlineMs = {};
+  Timer? _debounceTimer;
+  final Queue<_WorkItem> _queue = Queue<_WorkItem>();
+  Completer<void>? _workerCompleter;
+  bool _workerRunning = false;
   late Snapshotter _snapshotter;
 
   Future<void> run({Stream<FsEvent>? events, int? maxEvents}) async {
@@ -194,58 +199,97 @@ class Daemon {
 
   void _schedule(String path, FsEventType type) {
     _pending[path] = type;
-    _timers[path]?.cancel();
-    final completer = _pendingCompleters[path] ??= Completer<void>();
-    _timers[path] = Timer(_debounceWindow, () async {
-      final backoffMs = _remainingBackoffMs();
-      if (backoffMs > 0) {
-        _timers[path]?.cancel();
-        _timers[path] = Timer(
-          Duration(milliseconds: backoffMs),
-          () => _schedule(path, type),
-        );
-        return;
-      }
+    _pendingDeadlineMs[path] =
+        DateTime.now().millisecondsSinceEpoch + _debounceWindow.inMilliseconds;
+    _scheduleDebounceTimer();
+  }
 
-      final latestType = _pending.remove(path);
-      _timers.remove(path);
-      _pendingCompleters.remove(path);
-      if (latestType == null) {
-        if (!completer.isCompleted) {
-          completer.complete();
-        }
-        return;
+  void _scheduleDebounceTimer() {
+    _debounceTimer?.cancel();
+    if (_pendingDeadlineMs.isEmpty) {
+      return;
+    }
+    final now = DateTime.now().millisecondsSinceEpoch;
+    var nextDeadline = _pendingDeadlineMs.values.first;
+    for (final deadline in _pendingDeadlineMs.values) {
+      if (deadline < nextDeadline) {
+        nextDeadline = deadline;
       }
+    }
+    final delayMs = max(0, nextDeadline - now);
+    _debounceTimer = Timer(Duration(milliseconds: delayMs), _flushReady);
+  }
 
-      if (!config.isPathIncluded(path)) {
-        if (!completer.isCompleted) {
-          completer.complete();
-        }
-        return;
-      }
-
-      try {
-        if (latestType == FsEventType.delete) {
-          await _snapshotter.snapshotDelete(path);
-        } else {
-          await _snapshotter.snapshotPath(path);
-        }
-      } catch (error) {
-        _io?.warning('Failed to snapshot $path: $error');
-      } finally {
-        if (!completer.isCompleted) {
-          completer.complete();
-        }
+  void _flushReady() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final readyPaths = <String>[];
+    _pendingDeadlineMs.forEach((path, deadline) {
+      if (deadline <= now) {
+        readyPaths.add(path);
       }
     });
+    for (final path in readyPaths) {
+      _pendingDeadlineMs.remove(path);
+      final type = _pending.remove(path);
+      if (type != null) {
+        _enqueue(path, type);
+      }
+    }
+    if (_pendingDeadlineMs.isNotEmpty) {
+      _scheduleDebounceTimer();
+    }
+  }
+
+  void _enqueue(String path, FsEventType type) {
+    _queue.add(_WorkItem(path, type));
+    _startWorker();
+  }
+
+  void _startWorker() {
+    if (_workerRunning) return;
+    _workerRunning = true;
+    _workerCompleter = Completer<void>();
+    unawaited(_runWorker());
+  }
+
+  Future<void> _runWorker() async {
+    try {
+      while (_queue.isNotEmpty) {
+        final item = _queue.removeFirst();
+        final backoffMs = _remainingBackoffMs();
+        if (backoffMs > 0) {
+          await Future<void>.delayed(Duration(milliseconds: backoffMs));
+        }
+        if (!_reloadPending && !config.isPathIncluded(item.path)) {
+          continue;
+        }
+        try {
+          if (item.type == FsEventType.delete) {
+            await _snapshotter.snapshotDelete(item.path);
+          } else {
+            await _snapshotter.snapshotPath(item.path);
+          }
+        } catch (error) {
+          _io?.warning('Failed to snapshot ${item.path}: $error');
+        }
+      }
+    } finally {
+      _workerRunning = false;
+      _workerCompleter?.complete();
+    }
   }
 
   Future<void> _drainPending() async {
-    if (_pendingCompleters.isEmpty) return;
-    final futures = _pendingCompleters.values
-        .map((completer) => completer.future)
-        .toList(growable: false);
-    await Future.wait(futures);
+    _debounceTimer?.cancel();
+    if (_pending.isNotEmpty) {
+      for (final entry in _pending.entries) {
+        _queue.add(_WorkItem(entry.key, entry.value));
+      }
+      _pending.clear();
+      _pendingDeadlineMs.clear();
+    }
+    _startWorker();
+    await _workerCompleter?.future;
   }
 
   void _startConfigWatcher() {
@@ -319,4 +363,11 @@ class Daemon {
     await releaseLockHandle(_lockFile, _lockHandle);
     _lockHandle = null;
   }
+}
+
+class _WorkItem {
+  _WorkItem(this.path, this.type);
+
+  final String path;
+  final FsEventType type;
 }

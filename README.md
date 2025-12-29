@@ -84,6 +84,10 @@ indexed for search. Binary revisions are stored as raw bytes only.
 Filesystem changes are debounced (default 200ms) to collapse bursty editor
 saves into a single revision.
 
+### Duplicate suppression
+If a file is saved without any content changes, Local History skips inserting a
+new revision (based on checksum).
+
 ### Config reload
 While the daemon is running, changes to `.lh/config.yaml` are detected and
 reloaded automatically. Reloads are debounced and followed by a short backoff

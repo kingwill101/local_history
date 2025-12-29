@@ -6,7 +6,8 @@ import 'package:ormed/migrations.dart';
 import 'migrations/m_20251228132215_create_history_tables.dart';
 import 'migrations/m_20251228134654_rename_revisions_fts_index.dart';
 import 'migrations/m_20251228193057_add_snapshots.dart';
-import 'migrations/m_20251228195843_add_revision_checksum.dart'; // </ORM-MIGRATION-IMPORTS>
+import 'migrations/m_20251228195843_add_revision_checksum.dart';
+import 'migrations/m_20251229094413_add_files_last_checksum.dart'; // </ORM-MIGRATION-IMPORTS>
 
 final List<MigrationEntry> _entries = [
   // <ORM-MIGRATION-REGISTRY>
@@ -25,6 +26,10 @@ final List<MigrationEntry> _entries = [
   MigrationEntry(
     id: MigrationId.parse('m_20251228195843_add_revision_checksum'),
     migration: const AddRevisionChecksum(),
+  ),
+  MigrationEntry(
+    id: MigrationId.parse('m_20251229094413_add_files_last_checksum'),
+    migration: const AddFilesLastChecksum(),
   ), // </ORM-MIGRATION-REGISTRY>
 ];
 

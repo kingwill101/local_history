@@ -138,6 +138,44 @@ void main() {
     await db.close();
   });
 
+  test(
+    'history database inserts snapshot batches and links revisions',
+    () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'lh_db_snapshot_batch',
+      );
+      addTearDown(() => tempDir.delete(recursive: true));
+
+      final dbPath = p.join(tempDir.path, 'history.db');
+      final db = await HistoryDb.open(dbPath, createIfMissing: true);
+
+      final snapshot = await db.createSnapshot(label: 'batch-1');
+      final writes = [
+        RevisionWrite(
+          path: 'lib/a.txt',
+          content: Uint8List.fromList('alpha'.codeUnits),
+          contentText: 'alpha',
+        ),
+        RevisionWrite(
+          path: 'lib/b.txt',
+          content: Uint8List.fromList('beta'.codeUnits),
+          contentText: 'beta',
+        ),
+      ];
+
+      final ids = await db.insertSnapshotBatch(
+        snapshotId: snapshot.snapshotId,
+        writes: writes,
+      );
+      expect(ids.length, 2);
+
+      final linked = await db.listSnapshotRevisions(snapshot.snapshotId);
+      expect(linked.length, 2);
+
+      await db.close();
+    },
+  );
+
   test('history database stores revision checksum', () async {
     final tempDir = await Directory.systemTemp.createTemp('lh_db_checksum');
     addTearDown(() => tempDir.delete(recursive: true));
@@ -159,6 +197,38 @@ void main() {
 
     final expected = sha256.convert(content).bytes;
     expect(revision?.checksum, expected);
+
+    await db.close();
+  });
+
+  test('history database skips duplicate revision content', () async {
+    final tempDir = await Directory.systemTemp.createTemp('lh_db_dup');
+    addTearDown(() => tempDir.delete(recursive: true));
+
+    final dbPath = p.join(tempDir.path, 'history.db');
+    final db = await HistoryDb.open(dbPath, createIfMissing: true);
+
+    final content = Uint8List.fromList('duplicate'.codeUnits);
+    final first = await db.insertRevision(
+      path: 'lib/dup.txt',
+      timestampMs: DateTime.now().millisecondsSinceEpoch,
+      changeType: 'create',
+      content: content,
+      contentText: 'duplicate',
+    );
+    expect(first, greaterThan(0));
+
+    final second = await db.insertRevision(
+      path: 'lib/dup.txt',
+      timestampMs: DateTime.now().millisecondsSinceEpoch + 1,
+      changeType: 'modify',
+      content: content,
+      contentText: 'duplicate',
+    );
+    expect(second, 0);
+
+    final history = await db.listHistory('lib/dup.txt');
+    expect(history.length, 1);
 
     await db.close();
   });
