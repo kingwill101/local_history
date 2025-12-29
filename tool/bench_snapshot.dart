@@ -1,9 +1,11 @@
 /// Snapshot benchmark tool for Local History.
+library;
+
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
-import 'package:args/args.dart';
+import 'package:artisanal/args.dart';
 import 'package:path/path.dart' as p;
 
 /// Runs the snapshot benchmark with CLI-configured parameters.

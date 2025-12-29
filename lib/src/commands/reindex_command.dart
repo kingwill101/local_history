@@ -1,7 +1,5 @@
 /// CLI command that processes deferred search indexing.
-import 'dart:io';
-
-import 'package:args/command_runner.dart' as args;
+library;
 
 import '../history_db.dart';
 import '../project_config.dart';
@@ -65,22 +63,22 @@ class ReindexCommand extends BaseCommand {
       '($modeLabel).',
     );
   }
-}
 
-int _resolveBatchSize({
-  required ProjectConfig config,
-  required String? rawOverride,
-}) {
-  if (rawOverride == null) {
-    return config.ftsBatchSize;
+  int _resolveBatchSize({
+    required ProjectConfig config,
+    required String? rawOverride,
+  }) {
+    if (rawOverride == null) {
+      return config.ftsBatchSize;
+    }
+    final trimmed = rawOverride.trim();
+    if (trimmed.isEmpty) {
+      throw usageException('Invalid batch size.');
+    }
+    final parsed = int.tryParse(trimmed);
+    if (parsed == null || parsed < 1) {
+      throw usageException('Invalid batch size: $rawOverride');
+    }
+    return parsed;
   }
-  final trimmed = rawOverride.trim();
-  if (trimmed.isEmpty) {
-    throw args.UsageException('Invalid batch size.', '');
-  }
-  final parsed = int.tryParse(trimmed);
-  if (parsed == null || parsed < 1) {
-    throw args.UsageException('Invalid batch size: $rawOverride', '');
-  }
-  return parsed;
 }

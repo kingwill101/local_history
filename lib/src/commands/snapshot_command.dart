@@ -1,7 +1,7 @@
 /// CLI command that captures a snapshot of tracked files.
-import 'dart:io';
+library;
 
-import 'package:args/command_runner.dart' as args;
+import 'dart:io';
 
 import '../history_db.dart';
 import '../history_models.dart';
@@ -174,40 +174,40 @@ class SnapshotCommand extends BaseCommand {
       '($scanned files scanned, $skipped skipped).',
     );
   }
-}
 
-int _resolveConcurrency({
-  required ProjectConfig config,
-  required String? rawOverride,
-}) {
-  if (rawOverride == null) {
-    return config.snapshotConcurrency;
+  int _resolveConcurrency({
+    required ProjectConfig config,
+    required String? rawOverride,
+  }) {
+    if (rawOverride == null) {
+      return config.snapshotConcurrency;
+    }
+    final trimmed = rawOverride.trim();
+    if (trimmed.isEmpty) {
+      throw usageException('Invalid concurrency value.');
+    }
+    final parsed = int.tryParse(trimmed);
+    if (parsed == null || parsed < 1) {
+      throw usageException('Invalid concurrency value: $rawOverride');
+    }
+    return parsed;
   }
-  final trimmed = rawOverride.trim();
-  if (trimmed.isEmpty) {
-    throw args.UsageException('Invalid concurrency value.', '');
-  }
-  final parsed = int.tryParse(trimmed);
-  if (parsed == null || parsed < 1) {
-    throw args.UsageException('Invalid concurrency value: $rawOverride', '');
-  }
-  return parsed;
-}
 
-int _resolveWriteBatch({
-  required ProjectConfig config,
-  required String? rawOverride,
-}) {
-  if (rawOverride == null) {
-    return config.snapshotWriteBatch;
+  int _resolveWriteBatch({
+    required ProjectConfig config,
+    required String? rawOverride,
+  }) {
+    if (rawOverride == null) {
+      return config.snapshotWriteBatch;
+    }
+    final trimmed = rawOverride.trim();
+    if (trimmed.isEmpty) {
+      throw usageException('Invalid write batch value.');
+    }
+    final parsed = int.tryParse(trimmed);
+    if (parsed == null || parsed < 1) {
+      throw usageException('Invalid write batch value: $rawOverride');
+    }
+    return parsed;
   }
-  final trimmed = rawOverride.trim();
-  if (trimmed.isEmpty) {
-    throw args.UsageException('Invalid write batch value.', '');
-  }
-  final parsed = int.tryParse(trimmed);
-  if (parsed == null || parsed < 1) {
-    throw args.UsageException('Invalid write batch value: $rawOverride', '');
-  }
-  return parsed;
 }
