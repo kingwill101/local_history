@@ -40,7 +40,7 @@ void main() {
 
     final history = await tools.handleHistoryList(
       CallToolRequest(
-        name: 'lh_history_list',
+        name: 'lh.history.list',
         arguments: {'path': 'lib/main.dart'},
       ),
     );
@@ -48,14 +48,14 @@ void main() {
     expect(history.structuredContent?['entries'], isNotNull);
 
     final show = await tools.handleRevisionShow(
-      CallToolRequest(name: 'lh_revision_show', arguments: {'revId': revA}),
+      CallToolRequest(name: 'lh.revision.show', arguments: {'revId': revA}),
     );
     expect(show.isError ?? false, false);
     expect(show.structuredContent?['revId'], revA);
 
     final diff = await tools.handleRevisionDiff(
       CallToolRequest(
-        name: 'lh_revision_diff',
+        name: 'lh.revision.diff',
         arguments: {'revA': revA, 'revB': revB},
       ),
     );
@@ -63,13 +63,13 @@ void main() {
     expect(diff.content.first, isA<TextContent>());
 
     final search = await tools.handleHistorySearch(
-      CallToolRequest(name: 'lh_history_search', arguments: {'query': 'two'}),
+      CallToolRequest(name: 'lh.history.search', arguments: {'query': 'two'}),
     );
     expect(search.isError ?? false, false);
     expect(search.structuredContent?['results'], isNotNull);
 
     final verify = await tools.handleRevisionVerify(
-      CallToolRequest(name: 'lh_revision_verify', arguments: {'revId': revA}),
+      CallToolRequest(name: 'lh.revision.verify', arguments: {'revId': revA}),
     );
     expect(verify.isError ?? false, false);
     expect(verify.structuredContent?['status'], 'ok');
@@ -80,7 +80,7 @@ void main() {
     final tools = LocalHistoryMcpTools(rootPath: dir.path);
 
     final result = await tools.handleRevisionShow(
-      CallToolRequest(name: 'lh_revision_show', arguments: {'revId': 999}),
+      CallToolRequest(name: 'lh.revision.show', arguments: {'revId': 999}),
     );
     expect(result.isError ?? false, true);
   });
