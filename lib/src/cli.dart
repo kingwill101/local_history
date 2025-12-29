@@ -1,4 +1,5 @@
 /// CLI entry utilities for the Local History command runner.
+library;
 import 'dart:io';
 
 import 'package:artisanal/artisanal.dart';

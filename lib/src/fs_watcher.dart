@@ -1,4 +1,5 @@
 /// Filesystem watcher adapter that normalizes events to project-relative paths.
+library;
 import 'dart:io';
 
 import 'package:watcher/watcher.dart';

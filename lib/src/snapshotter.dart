@@ -1,4 +1,5 @@
 /// Snapshot helpers that read files and persist revisions.
+library;
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';

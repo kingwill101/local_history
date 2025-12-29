@@ -1,4 +1,5 @@
 /// ORM-backed access to the Local History database.
+library;
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';

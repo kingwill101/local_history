@@ -1,4 +1,5 @@
 /// Migration that adds a last-checksum column to files.
+library;
 import 'package:ormed_sqlite/migrations.dart';
 
 /// Adds `last_checksum` to the `files` table.

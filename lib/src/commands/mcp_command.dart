@@ -1,4 +1,5 @@
 /// CLI command that starts the MCP server over stdio.
+library;
 import 'dart:io';
 
 import 'package:dart_mcp/stdio.dart';

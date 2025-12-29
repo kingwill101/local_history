@@ -1,4 +1,5 @@
 /// Tests for MCP tool handlers.
+library;
 import 'dart:io';
 import 'dart:typed_data';
 

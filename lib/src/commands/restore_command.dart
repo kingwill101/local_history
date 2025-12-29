@@ -1,4 +1,5 @@
 /// CLI command that restores a revision to disk.
+library;
 import 'dart:io';
 import '../history_db.dart';
 import '../path_utils.dart';

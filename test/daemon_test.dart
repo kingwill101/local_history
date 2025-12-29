@@ -1,4 +1,5 @@
 /// Tests for the Local History daemon.
+library;
 import 'dart:async';
 import 'dart:io';
 

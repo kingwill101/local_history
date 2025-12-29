@@ -1,4 +1,5 @@
 /// Migration that adds file metadata and raw text content columns.
+library;
 import 'package:ormed/migrations.dart';
 
 /// Adds metadata columns to files and raw text storage to revisions.

@@ -1,4 +1,5 @@
 /// ORM model for the `files` table.
+library;
 import 'package:ormed/ormed.dart';
 
 part 'file_record.orm.dart';

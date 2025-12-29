@@ -1,4 +1,5 @@
 /// Seeder registry entrypoint for Local History.
+library;
 // ignore: depend_on_referenced_packages
 import 'package:ormed_cli/runtime.dart';
 import 'package:ormed/ormed.dart';

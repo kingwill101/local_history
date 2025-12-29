@@ -1,4 +1,5 @@
 /// Tests for the snapshot benchmark tool.
+library;
 import 'dart:io';
 
 import 'package:test/test.dart';

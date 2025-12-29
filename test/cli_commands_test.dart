@@ -1,4 +1,5 @@
 /// CLI tests for core commands.
+library;
 import 'dart:io';
 import 'dart:typed_data';
 

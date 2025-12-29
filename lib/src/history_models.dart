@@ -1,4 +1,5 @@
 /// Typed history records returned from database queries.
+library;
 import 'dart:typed_data';
 
 /// Summary row for a file's revision history.

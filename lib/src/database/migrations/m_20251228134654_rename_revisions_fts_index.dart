@@ -1,4 +1,5 @@
 /// Migration that renames the revisions FTS index.
+library;
 import 'package:ormed/migrations.dart';
 
 /// Renames the FTS index to match current naming conventions.

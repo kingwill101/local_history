@@ -1,4 +1,5 @@
 /// CLI command that initializes Local History for a project.
+library;
 import '../history_db.dart';
 import '../project_config.dart';
 import 'base_command.dart';

@@ -1,4 +1,5 @@
 /// Path normalization helpers for Local History.
+library;
 import 'package:path/path.dart' as p;
 
 /// Returns [path] with Windows separators normalized to `/`.

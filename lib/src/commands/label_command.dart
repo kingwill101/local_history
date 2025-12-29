@@ -1,4 +1,5 @@
 /// CLI command that labels a revision.
+library;
 import '../history_db.dart';
 import 'base_command.dart';
 

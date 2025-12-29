@@ -1,4 +1,5 @@
 /// Filesystem path helpers for Local History project metadata.
+library;
 import 'dart:io';
 
 import 'package:path/path.dart' as p;

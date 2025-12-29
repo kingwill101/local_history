@@ -1,4 +1,5 @@
 /// CLI tests for the daemon command.
+library;
 import 'dart:async';
 import 'dart:io';
 

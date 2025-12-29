@@ -1,4 +1,5 @@
 /// Database seeder placeholder for Local History.
+library;
 import 'package:ormed/ormed.dart';
 
 /// Root seeder executed by `orm seed` and `orm migrate --seed`.

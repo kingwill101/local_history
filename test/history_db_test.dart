@@ -1,4 +1,5 @@
 /// Tests for HistoryDb behavior.
+library;
 import 'dart:io';
 import 'dart:typed_data';
 

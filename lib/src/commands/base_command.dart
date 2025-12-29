@@ -1,4 +1,5 @@
 /// Shared CLI command helpers for Local History.
+library;
 import 'dart:io';
 
 import 'package:artisanal/args.dart';

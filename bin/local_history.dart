@@ -1,4 +1,5 @@
 /// CLI entry point for the Local History binary.
+library;
 import 'dart:io';
 
 import 'package:local_history/local_history.dart';
