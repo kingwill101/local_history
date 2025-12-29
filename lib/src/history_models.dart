@@ -56,7 +56,7 @@ class HistoryRevision {
   /// Raw file contents captured for the revision.
   final Uint8List content;
 
-  /// Decoded text content for search indexing, when available.
+  /// Decoded text content, when available.
   final String? contentText;
 
   /// SHA-256 checksum of [content], when stored.

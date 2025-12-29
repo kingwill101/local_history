@@ -7,7 +7,13 @@ part 'file_record.orm.dart';
 @OrmModel(table: 'files', timestamps: false, primaryKey: ['file_id'])
 class FileRecord extends Model<FileRecord> {
   /// Creates a file record.
-  const FileRecord({this.fileId, required this.path, this.lastChecksum});
+  const FileRecord({
+    this.fileId,
+    required this.path,
+    this.lastChecksum,
+    this.lastMtimeMs,
+    this.lastSizeBytes,
+  });
 
   /// Primary key for the file row.
   @OrmField(columnName: 'file_id', isPrimaryKey: true, autoIncrement: true)
@@ -20,4 +26,12 @@ class FileRecord extends Model<FileRecord> {
   /// Last stored content checksum for the file.
   @OrmField(columnName: 'last_checksum')
   final List<int>? lastChecksum;
+
+  /// Last observed file modification time (epoch milliseconds).
+  @OrmField(columnName: 'last_mtime_ms')
+  final int? lastMtimeMs;
+
+  /// Last observed file size in bytes.
+  @OrmField(columnName: 'last_size_bytes')
+  final int? lastSizeBytes;
 }

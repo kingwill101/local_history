@@ -103,6 +103,18 @@ const FieldDefinition _$RevisionRecordContentTextField = FieldDefinition(
   autoIncrement: false,
 );
 
+const FieldDefinition _$RevisionRecordContentTextRawField = FieldDefinition(
+  name: 'contentTextRaw',
+  columnName: 'content_text_raw',
+  dartType: 'String',
+  resolvedType: 'String?',
+  isPrimaryKey: false,
+  isNullable: true,
+  isUnique: false,
+  isIndexed: false,
+  autoIncrement: false,
+);
+
 Map<String, Object?> _encodeRevisionRecordUntracked(
   Object model,
   ValueCodecRegistry registry,
@@ -126,6 +138,10 @@ Map<String, Object?> _encodeRevisionRecordUntracked(
       _$RevisionRecordContentTextField,
       m.contentText,
     ),
+    'content_text_raw': registry.encodeField(
+      _$RevisionRecordContentTextRawField,
+      m.contentTextRaw,
+    ),
   };
 }
 
@@ -142,6 +158,7 @@ final ModelDefinition<$RevisionRecord> _$RevisionRecordDefinition =
         _$RevisionRecordContentField,
         _$RevisionRecordChecksumField,
         _$RevisionRecordContentTextField,
+        _$RevisionRecordContentTextRawField,
       ],
       relations: const [],
       softDeleteColumn: 'deleted_at',
@@ -298,6 +315,10 @@ class _$RevisionRecordCodec extends ModelCodec<$RevisionRecord> {
         _$RevisionRecordContentTextField,
         model.contentText,
       ),
+      'content_text_raw': registry.encodeField(
+        _$RevisionRecordContentTextRawField,
+        model.contentTextRaw,
+      ),
     };
   }
 
@@ -352,6 +373,11 @@ class _$RevisionRecordCodec extends ModelCodec<$RevisionRecord> {
           _$RevisionRecordContentTextField,
           data['content_text'],
         );
+    final String? revisionRecordContentTextRawValue = registry
+        .decodeField<String?>(
+          _$RevisionRecordContentTextRawField,
+          data['content_text_raw'],
+        );
     final model = $RevisionRecord(
       revId: revisionRecordRevIdValue,
       fileId: revisionRecordFileIdValue,
@@ -361,6 +387,7 @@ class _$RevisionRecordCodec extends ModelCodec<$RevisionRecord> {
       content: revisionRecordContentValue,
       checksum: revisionRecordChecksumValue,
       contentText: revisionRecordContentTextValue,
+      contentTextRaw: revisionRecordContentTextRawValue,
     );
     model._attachOrmRuntimeMetadata({
       'rev_id': revisionRecordRevIdValue,
@@ -371,6 +398,7 @@ class _$RevisionRecordCodec extends ModelCodec<$RevisionRecord> {
       'content': revisionRecordContentValue,
       'checksum': revisionRecordChecksumValue,
       'content_text': revisionRecordContentTextValue,
+      'content_text_raw': revisionRecordContentTextRawValue,
     });
     return model;
   }
@@ -388,6 +416,7 @@ class RevisionRecordInsertDto implements InsertDto<$RevisionRecord> {
     this.content,
     this.checksum,
     this.contentText,
+    this.contentTextRaw,
   });
   final int? fileId;
   final int? timestampMs;
@@ -396,6 +425,7 @@ class RevisionRecordInsertDto implements InsertDto<$RevisionRecord> {
   final List<int>? content;
   final List<int>? checksum;
   final String? contentText;
+  final String? contentTextRaw;
 
   @override
   Map<String, Object?> toMap() {
@@ -407,6 +437,7 @@ class RevisionRecordInsertDto implements InsertDto<$RevisionRecord> {
       if (content != null) 'content': content,
       if (checksum != null) 'checksum': checksum,
       if (contentText != null) 'content_text': contentText,
+      if (contentTextRaw != null) 'content_text_raw': contentTextRaw,
     };
   }
 
@@ -420,6 +451,7 @@ class RevisionRecordInsertDto implements InsertDto<$RevisionRecord> {
     Object? content = _copyWithSentinel,
     Object? checksum = _copyWithSentinel,
     Object? contentText = _copyWithSentinel,
+    Object? contentTextRaw = _copyWithSentinel,
   }) {
     return RevisionRecordInsertDto(
       fileId: identical(fileId, _copyWithSentinel)
@@ -443,6 +475,9 @@ class RevisionRecordInsertDto implements InsertDto<$RevisionRecord> {
       contentText: identical(contentText, _copyWithSentinel)
           ? this.contentText
           : contentText as String?,
+      contentTextRaw: identical(contentTextRaw, _copyWithSentinel)
+          ? this.contentTextRaw
+          : contentTextRaw as String?,
     );
   }
 }
@@ -464,6 +499,7 @@ class RevisionRecordUpdateDto implements UpdateDto<$RevisionRecord> {
     this.content,
     this.checksum,
     this.contentText,
+    this.contentTextRaw,
   });
   final int? revId;
   final int? fileId;
@@ -473,6 +509,7 @@ class RevisionRecordUpdateDto implements UpdateDto<$RevisionRecord> {
   final List<int>? content;
   final List<int>? checksum;
   final String? contentText;
+  final String? contentTextRaw;
 
   @override
   Map<String, Object?> toMap() {
@@ -485,6 +522,7 @@ class RevisionRecordUpdateDto implements UpdateDto<$RevisionRecord> {
       if (content != null) 'content': content,
       if (checksum != null) 'checksum': checksum,
       if (contentText != null) 'content_text': contentText,
+      if (contentTextRaw != null) 'content_text_raw': contentTextRaw,
     };
   }
 
@@ -499,6 +537,7 @@ class RevisionRecordUpdateDto implements UpdateDto<$RevisionRecord> {
     Object? content = _copyWithSentinel,
     Object? checksum = _copyWithSentinel,
     Object? contentText = _copyWithSentinel,
+    Object? contentTextRaw = _copyWithSentinel,
   }) {
     return RevisionRecordUpdateDto(
       revId: identical(revId, _copyWithSentinel) ? this.revId : revId as int?,
@@ -523,6 +562,9 @@ class RevisionRecordUpdateDto implements UpdateDto<$RevisionRecord> {
       contentText: identical(contentText, _copyWithSentinel)
           ? this.contentText
           : contentText as String?,
+      contentTextRaw: identical(contentTextRaw, _copyWithSentinel)
+          ? this.contentTextRaw
+          : contentTextRaw as String?,
     );
   }
 }
@@ -544,6 +586,7 @@ class RevisionRecordPartial implements PartialEntity<$RevisionRecord> {
     this.content,
     this.checksum,
     this.contentText,
+    this.contentTextRaw,
   });
 
   /// Creates a partial from a database row map.
@@ -560,6 +603,7 @@ class RevisionRecordPartial implements PartialEntity<$RevisionRecord> {
       content: row['content'] as List<int>?,
       checksum: row['checksum'] as List<int>?,
       contentText: row['content_text'] as String?,
+      contentTextRaw: row['content_text_raw'] as String?,
     );
   }
 
@@ -571,6 +615,7 @@ class RevisionRecordPartial implements PartialEntity<$RevisionRecord> {
   final List<int>? content;
   final List<int>? checksum;
   final String? contentText;
+  final String? contentTextRaw;
 
   @override
   $RevisionRecord toEntity() {
@@ -600,6 +645,7 @@ class RevisionRecordPartial implements PartialEntity<$RevisionRecord> {
       content: contentValue,
       checksum: checksum,
       contentText: contentText,
+      contentTextRaw: contentTextRaw,
     );
   }
 
@@ -614,6 +660,7 @@ class RevisionRecordPartial implements PartialEntity<$RevisionRecord> {
       if (content != null) 'content': content,
       if (checksum != null) 'checksum': checksum,
       if (contentText != null) 'content_text': contentText,
+      if (contentTextRaw != null) 'content_text_raw': contentTextRaw,
     };
   }
 
@@ -628,6 +675,7 @@ class RevisionRecordPartial implements PartialEntity<$RevisionRecord> {
     Object? content = _copyWithSentinel,
     Object? checksum = _copyWithSentinel,
     Object? contentText = _copyWithSentinel,
+    Object? contentTextRaw = _copyWithSentinel,
   }) {
     return RevisionRecordPartial(
       revId: identical(revId, _copyWithSentinel) ? this.revId : revId as int?,
@@ -652,6 +700,9 @@ class RevisionRecordPartial implements PartialEntity<$RevisionRecord> {
       contentText: identical(contentText, _copyWithSentinel)
           ? this.contentText
           : contentText as String?,
+      contentTextRaw: identical(contentTextRaw, _copyWithSentinel)
+          ? this.contentTextRaw
+          : contentTextRaw as String?,
     );
   }
 }
@@ -681,6 +732,7 @@ class $RevisionRecord extends RevisionRecord
     required List<int> content,
     List<int>? checksum,
     String? contentText,
+    String? contentTextRaw,
   }) : super.new(
          revId: revId,
          fileId: fileId,
@@ -690,6 +742,7 @@ class $RevisionRecord extends RevisionRecord
          content: content,
          checksum: checksum,
          contentText: contentText,
+         contentTextRaw: contentTextRaw,
        ) {
     _attachOrmRuntimeMetadata({
       'rev_id': revId,
@@ -700,6 +753,7 @@ class $RevisionRecord extends RevisionRecord
       'content': content,
       'checksum': checksum,
       'content_text': contentText,
+      'content_text_raw': contentTextRaw,
     });
   }
 
@@ -714,6 +768,7 @@ class $RevisionRecord extends RevisionRecord
       content: model.content,
       checksum: model.checksum,
       contentText: model.contentText,
+      contentTextRaw: model.contentTextRaw,
     );
   }
 
@@ -726,6 +781,7 @@ class $RevisionRecord extends RevisionRecord
     List<int>? content,
     List<int>? checksum,
     String? contentText,
+    String? contentTextRaw,
   }) {
     return $RevisionRecord(
       revId: revId ?? this.revId,
@@ -736,6 +792,7 @@ class $RevisionRecord extends RevisionRecord
       content: content ?? this.content,
       checksum: checksum ?? this.checksum,
       contentText: contentText ?? this.contentText,
+      contentTextRaw: contentTextRaw ?? this.contentTextRaw,
     );
   }
 
@@ -797,6 +854,14 @@ class $RevisionRecord extends RevisionRecord
 
   /// Tracked setter for [contentText].
   set contentText(String? value) => setAttribute('content_text', value);
+
+  /// Tracked getter for [contentTextRaw].
+  @override
+  String? get contentTextRaw =>
+      getAttribute<String?>('content_text_raw') ?? super.contentTextRaw;
+
+  /// Tracked setter for [contentTextRaw].
+  set contentTextRaw(String? value) => setAttribute('content_text_raw', value);
 
   void _attachOrmRuntimeMetadata(Map<String, Object?> values) {
     replaceAttributes(values);

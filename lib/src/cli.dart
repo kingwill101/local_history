@@ -14,6 +14,7 @@ export 'commands/index.dart'
         InitCommand,
         LabelCommand,
         McpCommand,
+        ReindexCommand,
         RestoreCommand,
         SnapshotCommand,
         SnapshotRestoreCommand,
@@ -41,6 +42,7 @@ Future<int> runCli(List<String> args, {Directory? workingDirectory}) async {
     ..addCommand(SnapshotCommand())
     ..addCommand(SnapshotRestoreCommand())
     ..addCommand(SearchCommand())
+    ..addCommand(ReindexCommand())
     ..addCommand(VerifyCommand())
     ..addCommand(LabelCommand())
     ..addCommand(GcCommand());

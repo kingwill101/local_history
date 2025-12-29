@@ -14,6 +14,8 @@ class SnapshotPayload {
     required this.path,
     required this.content,
     required this.contentText,
+    required this.mtimeMs,
+    required this.sizeBytes,
   });
 
   /// Project-relative file path for the payload.
@@ -24,6 +26,12 @@ class SnapshotPayload {
 
   /// Decoded text content, when available.
   final String? contentText;
+
+  /// File modification time in epoch milliseconds.
+  final int mtimeMs;
+
+  /// File size in bytes.
+  final int sizeBytes;
 }
 
 /// Reads files and records revisions into the history database.
@@ -41,7 +49,14 @@ class Snapshotter {
   ///
   /// Returns `null` when the file does not exist, is not a file, or exceeds
   /// the configured max file size.
-  Future<SnapshotPayload?> readSnapshot(String relativePath) async {
+  ///
+  /// When [incremental] is true and [previous] metadata matches the current
+  /// filesystem state, the file is skipped and `null` is returned.
+  Future<SnapshotPayload?> readSnapshot(
+    String relativePath, {
+    FileMetadata? previous,
+    bool incremental = false,
+  }) async {
     final absolutePath = resolveAbsolutePath(
       rootPath: config.rootPath,
       relativePath: relativePath,
@@ -57,6 +72,15 @@ class Snapshotter {
     if (stat.size > config.limits.maxFileSizeBytes) {
       return null;
     }
+    final mtimeMs = stat.modified.millisecondsSinceEpoch;
+    final sizeBytes = stat.size;
+    if (incremental &&
+        previous?.lastMtimeMs != null &&
+        previous?.lastSizeBytes != null &&
+        previous!.lastMtimeMs == mtimeMs &&
+        previous.lastSizeBytes == sizeBytes) {
+      return null;
+    }
 
     final bytes = await file.readAsBytes();
     final contentText = _maybeDecodeText(relativePath, bytes);
@@ -64,6 +88,8 @@ class Snapshotter {
       path: relativePath,
       content: Uint8List.fromList(bytes),
       contentText: contentText,
+      mtimeMs: mtimeMs,
+      sizeBytes: sizeBytes,
     );
   }
 
@@ -74,12 +100,16 @@ class Snapshotter {
   Future<int?> writeSnapshot(SnapshotPayload payload) async {
     final fileId = await db.getFileId(payload.path);
     final changeType = fileId == null ? 'create' : 'modify';
+    final deferIndexing = config.indexingMode == IndexingMode.deferred;
     final revId = await db.insertRevision(
       path: payload.path,
       timestampMs: DateTime.now().millisecondsSinceEpoch,
       changeType: changeType,
       content: payload.content,
       contentText: payload.contentText,
+      mtimeMs: payload.mtimeMs,
+      sizeBytes: payload.sizeBytes,
+      deferIndexing: deferIndexing,
     );
     if (revId <= 0) {
       return null;
@@ -106,6 +136,7 @@ class Snapshotter {
       changeType: 'delete',
       content: Uint8List(0),
       contentText: null,
+      deferIndexing: config.indexingMode == IndexingMode.deferred,
     );
   }
 

@@ -16,6 +16,8 @@ import 'database/models/snapshot_record.dart';
 import 'database/models/snapshot_revision_record.dart';
 import 'history_models.dart';
 
+const String _ftsTable = 'revisions_content_text_fts';
+
 /// Provides database operations for Local History revisions and snapshots.
 class HistoryDb {
   HistoryDb._(this.path, this._dataSource, this._adapter);
@@ -24,6 +26,7 @@ class HistoryDb {
   final String path;
   final DataSource _dataSource;
   final SqliteDriverAdapter _adapter;
+  static int _dataSourceCounter = 0;
 
   /// Opens a history database at [path].
   ///
@@ -46,9 +49,14 @@ class HistoryDb {
     }
 
     _registerBinaryCodecs();
+    final dataSourceName = 'lh_${_dataSourceCounter++}';
     final adapter = SqliteDriverAdapter.file(path);
     final dataSource = DataSource(
-      DataSourceOptions(driver: adapter, registry: bootstrapOrm()),
+      DataSourceOptions(
+        driver: adapter,
+        registry: bootstrapOrm(),
+        name: dataSourceName,
+      ),
     );
     await dataSource.init();
     await _configureDatabase(adapter);
@@ -89,6 +97,30 @@ class HistoryDb {
     return record?.fileId;
   }
 
+  /// Returns stored metadata for the provided file [paths].
+  Future<Map<String, FileMetadata>> getFileMetadataMap(
+    Iterable<String> paths,
+  ) async {
+    final uniquePaths = paths
+        .where((path) => path.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    if (uniquePaths.isEmpty) {
+      return const <String, FileMetadata>{};
+    }
+    final records = await _dataSource
+        .query<FileRecord>()
+        .whereIn('path', uniquePaths)
+        .get();
+    return {
+      for (final record in records)
+        record.path: FileMetadata(
+          lastMtimeMs: record.lastMtimeMs,
+          lastSizeBytes: record.lastSizeBytes,
+        ),
+    };
+  }
+
   Future<int> _ensureFileId(String path) async {
     final repo = _dataSource.repo<FileRecord>();
     await repo.upsert(FileRecord(path: path), uniqueBy: ['path']);
@@ -112,6 +144,9 @@ class HistoryDb {
     required Uint8List content,
     String? contentText,
     String? label,
+    int? mtimeMs,
+    int? sizeBytes,
+    bool deferIndexing = false,
   }) async {
     final checksum = sha256.convert(content).bytes;
     return _dataSource.transaction(() async {
@@ -120,29 +155,54 @@ class HistoryDb {
           .whereEquals('path', path)
           .first();
       final existingChecksum = fileRecord?.lastChecksum;
-      if (existingChecksum != null && _listEquals(existingChecksum, checksum)) {
-        return 0;
-      }
+      final isDelete = changeType == 'delete';
+      final isDuplicate =
+          !isDelete &&
+          existingChecksum != null &&
+          _listEquals(existingChecksum, checksum);
       final fileId = fileRecord?.fileId ?? await _ensureFileId(path);
-      final inserted = await _dataSource.repo<RevisionRecord>().insert(
-        RevisionRecord(
-          fileId: fileId,
-          timestampMs: timestampMs,
-          changeType: changeType,
-          label: label,
-          content: content.toList(growable: false),
-          checksum: checksum,
-          contentText: contentText,
-        ),
-      );
-      final revId = inserted.revId ?? 0;
-      if (revId > 0) {
+      final indexedText = deferIndexing ? null : contentText;
+      final rawText = contentText;
+      var revId = 0;
+      if (!isDuplicate) {
+        final inserted = await _dataSource.repo<RevisionRecord>().insert(
+          RevisionRecord(
+            fileId: fileId,
+            timestampMs: timestampMs,
+            changeType: changeType,
+            label: label,
+            content: content.toList(growable: false),
+            checksum: checksum,
+            contentText: indexedText,
+            contentTextRaw: rawText,
+          ),
+        );
+        revId = inserted.revId ?? 0;
+      }
+      final updates = <String, Object?>{};
+      if (!isDelete) {
+        if (mtimeMs != null) {
+          updates['lastMtimeMs'] = mtimeMs;
+        }
+        if (sizeBytes != null) {
+          updates['lastSizeBytes'] = sizeBytes;
+        }
+      } else {
+        updates['lastMtimeMs'] = null;
+        updates['lastSizeBytes'] = null;
+      }
+      if (!isDelete) {
+        updates['lastChecksum'] = checksum;
+      } else {
+        updates['lastChecksum'] = null;
+      }
+      if (updates.isNotEmpty) {
         await _dataSource
             .query<FileRecord>()
             .whereEquals('fileId', fileId)
-            .update({'lastChecksum': checksum});
+            .update(updates);
       }
-      return revId;
+      return isDuplicate ? 0 : revId;
     });
   }
 
@@ -153,6 +213,7 @@ class HistoryDb {
     required int snapshotId,
     required List<RevisionWrite> writes,
     Map<String, int>? fileIdCache,
+    bool deferIndexing = false,
   }) async {
     if (writes.isEmpty) return const [];
     final cache = fileIdCache ?? <String, int>{};
@@ -207,37 +268,49 @@ class HistoryDb {
         }
         final checksum = sha256.convert(write.content).bytes;
         final lastChecksum = checksumCache[write.path];
-        if (lastChecksum != null && _listEquals(lastChecksum, checksum)) {
-          continue;
-        }
-        final changeType = knownExisting.contains(write.path)
-            ? 'modify'
-            : 'create';
-        final inserted = await _dataSource.repo<RevisionRecord>().insert(
-          RevisionRecord(
-            fileId: fileId,
-            timestampMs: DateTime.now().millisecondsSinceEpoch,
-            changeType: changeType,
-            label: write.label,
-            content: write.content.toList(growable: false),
-            checksum: checksum,
-            contentText: write.contentText,
-          ),
-        );
-        final revId = inserted.revId;
-        if (revId != null) {
-          insertedIds.add(revId);
-          await _dataSource.repo<SnapshotRevisionRecord>().upsert(
-            SnapshotRevisionRecord(snapshotId: snapshotId, revId: revId),
-            uniqueBy: ['snapshotId', 'revId'],
+        final isDuplicate =
+            lastChecksum != null && _listEquals(lastChecksum, checksum);
+        final indexedText = deferIndexing ? null : write.contentText;
+        final rawText = write.contentText;
+        if (!isDuplicate) {
+          final changeType = knownExisting.contains(write.path)
+              ? 'modify'
+              : 'create';
+          final inserted = await _dataSource.repo<RevisionRecord>().insert(
+            RevisionRecord(
+              fileId: fileId,
+              timestampMs: DateTime.now().millisecondsSinceEpoch,
+              changeType: changeType,
+              label: write.label,
+              content: write.content.toList(growable: false),
+              checksum: checksum,
+              contentText: indexedText,
+              contentTextRaw: rawText,
+            ),
           );
-          await _dataSource
-              .query<FileRecord>()
-              .whereEquals('fileId', fileId)
-              .update({'lastChecksum': checksum});
-          checksumCache[write.path] = checksum;
-          knownExisting.add(write.path);
+          final revId = inserted.revId;
+          if (revId != null) {
+            insertedIds.add(revId);
+            await _dataSource.repo<SnapshotRevisionRecord>().upsert(
+              SnapshotRevisionRecord(snapshotId: snapshotId, revId: revId),
+              uniqueBy: ['snapshotId', 'revId'],
+            );
+            knownExisting.add(write.path);
+          }
         }
+        final updates = <String, Object?>{'lastChecksum': checksum};
+        if (write.mtimeMs != null) {
+          updates['lastMtimeMs'] = write.mtimeMs;
+        }
+        if (write.sizeBytes != null) {
+          updates['lastSizeBytes'] = write.sizeBytes;
+        }
+        await _dataSource
+            .query<FileRecord>()
+            .whereEquals('fileId', fileId)
+            .update(updates);
+        checksumCache[write.path] = checksum;
+        knownExisting.add(write.path);
       }
 
       return insertedIds;
@@ -291,7 +364,7 @@ class HistoryDb {
       changeType: revision.changeType,
       label: revision.label,
       content: Uint8List.fromList(revision.content),
-      contentText: revision.contentText,
+      contentText: revision.contentText ?? revision.contentTextRaw,
       checksum: revision.checksum == null
           ? null
           : Uint8List.fromList(revision.checksum!),
@@ -310,8 +383,7 @@ class HistoryDb {
   }) async {
     if (limit <= 0) return const [];
 
-    const ftsTable = 'revisions_content_text_fts';
-    final where = <String>['$ftsTable MATCH ?'];
+    final where = <String>['$_ftsTable MATCH ?'];
     final params = <Object?>[query];
 
     if (path != null) {
@@ -331,7 +403,7 @@ class HistoryDb {
     final sql =
         '''
 SELECT r.rev_id AS rev_id, r.timestamp AS timestamp, f.path AS path, r.label AS label
-FROM $ftsTable idx
+FROM $_ftsTable idx
 JOIN revisions r ON r.rev_id = idx.rowid
 JOIN files f ON f.file_id = r.file_id
 WHERE ${where.join(' AND ')}
@@ -353,6 +425,56 @@ LIMIT ?
           ),
         )
         .toList(growable: false);
+  }
+
+  /// Indexes pending revisions for deferred full-text search.
+  ///
+  /// Returns the number of revisions indexed.
+  Future<int> reindexPending({required int batchSize}) async {
+    final query = _dataSource
+        .query<RevisionRecord>()
+        .whereNull('contentText')
+        .whereNotNull('contentTextRaw')
+        .orderBy('revId');
+    return _reindexQuery(query, batchSize);
+  }
+
+  /// Rebuilds the full-text index for all text revisions.
+  ///
+  /// Returns the number of revisions re-indexed.
+  Future<int> reindexAll({required int batchSize}) async {
+    // TODO: Replace raw SQL once Ormed exposes FTS management helpers.
+    await _adapter.executeRaw('DELETE FROM $_ftsTable');
+    final query = _dataSource
+        .query<RevisionRecord>()
+        .whereNotNull('contentTextRaw')
+        .orderBy('revId');
+    return _reindexQuery(query, batchSize);
+  }
+
+  Future<int> _reindexQuery(Query<RevisionRecord> query, int batchSize) async {
+    if (batchSize < 1) return 0;
+    var updated = 0;
+    await query.chunkById(batchSize, (rows) async {
+      if (rows.isEmpty) return false;
+      await _dataSource.transaction(() async {
+        for (final row in rows) {
+          final revision = row.model;
+          final revId = revision.revId;
+          final rawText = revision.contentTextRaw;
+          if (revId == null || rawText == null) {
+            continue;
+          }
+          await _dataSource
+              .query<RevisionRecord>()
+              .whereEquals('revId', revId)
+              .update({'contentText': rawText});
+          updated += 1;
+        }
+      });
+      return true;
+    });
+    return updated;
   }
 
   /// Updates the label for revision [revId].
@@ -459,7 +581,7 @@ LIMIT ?
                 changeType: revision.changeType,
                 label: revision.label,
                 content: Uint8List.fromList(revision.content),
-                contentText: revision.contentText,
+                contentText: revision.contentText ?? revision.contentTextRaw,
                 checksum: revision.checksum == null
                     ? null
                     : Uint8List.fromList(revision.checksum!),
@@ -576,6 +698,18 @@ LIMIT ?
   }
 }
 
+/// Stored metadata for a tracked file.
+class FileMetadata {
+  /// Creates file metadata for incremental snapshots.
+  const FileMetadata({required this.lastMtimeMs, required this.lastSizeBytes});
+
+  /// Last observed modification time in epoch milliseconds.
+  final int? lastMtimeMs;
+
+  /// Last observed file size in bytes.
+  final int? lastSizeBytes;
+}
+
 /// Describes a revision write operation for batch inserts.
 class RevisionWrite {
   /// Creates a batch revision write.
@@ -584,6 +718,8 @@ class RevisionWrite {
     required this.content,
     this.contentText,
     this.label,
+    this.mtimeMs,
+    this.sizeBytes,
   });
 
   /// Project-relative file path to write.
@@ -597,6 +733,12 @@ class RevisionWrite {
 
   /// Optional label to apply to the revision.
   final String? label;
+
+  /// Optional file modification timestamp in epoch milliseconds.
+  final int? mtimeMs;
+
+  /// Optional file size in bytes.
+  final int? sizeBytes;
 }
 
 bool _listEquals(List<int> a, List<int> b) {

@@ -7,6 +7,7 @@ export 'history_command.dart';
 export 'init_command.dart';
 export 'label_command.dart';
 export 'mcp_command.dart';
+export 'reindex_command.dart';
 export 'restore_command.dart';
 export 'snapshot_command.dart';
 export 'snapshot_restore_command.dart';

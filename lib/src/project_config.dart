@@ -7,6 +7,15 @@ import 'package:yaml/yaml.dart';
 
 import 'path_utils.dart';
 
+/// Indexing strategy for full-text search content.
+enum IndexingMode {
+  /// Index revisions as soon as they are written.
+  immediate,
+
+  /// Defer indexing until a reindex pass is run.
+  deferred,
+}
+
 /// File watching settings for a Local History project.
 class WatchConfig {
   /// Creates a watch configuration.
@@ -59,6 +68,9 @@ class ProjectConfig {
     required this.textExtensions,
     required this.snapshotConcurrency,
     required this.snapshotWriteBatch,
+    required this.snapshotIncremental,
+    required this.indexingMode,
+    required this.ftsBatchSize,
   }) : _includeGlobs = _buildGlobs(watch.include),
        _excludeGlobs = _buildGlobs(watch.exclude),
        _normalizedTextExtensions = _normalizeExtensions(textExtensions);
@@ -83,6 +95,15 @@ class ProjectConfig {
 
   /// Default write batch size used by snapshots.
   final int snapshotWriteBatch;
+
+  /// Whether snapshots should skip unchanged files by default.
+  final bool snapshotIncremental;
+
+  /// Full-text indexing mode for revisions.
+  final IndexingMode indexingMode;
+
+  /// Default batch size used for deferred indexing.
+  final int ftsBatchSize;
 
   final List<Glob> _includeGlobs;
   final List<Glob> _excludeGlobs;
@@ -129,6 +150,15 @@ class ProjectConfig {
   /// Default snapshot write batch size.
   static const int defaultSnapshotWriteBatch = 64;
 
+  /// Default incremental snapshot setting.
+  static const bool defaultSnapshotIncremental = true;
+
+  /// Default indexing mode.
+  static const IndexingMode defaultIndexingMode = IndexingMode.immediate;
+
+  /// Default deferred indexing batch size.
+  static const int defaultFtsBatchSize = 500;
+
   /// Creates the default config for [rootPath].
   static ProjectConfig defaults({required String rootPath}) => ProjectConfig(
     rootPath: rootPath,
@@ -146,6 +176,9 @@ class ProjectConfig {
     textExtensions: defaultTextExtensions,
     snapshotConcurrency: defaultSnapshotConcurrency,
     snapshotWriteBatch: defaultSnapshotWriteBatch,
+    snapshotIncremental: defaultSnapshotIncremental,
+    indexingMode: defaultIndexingMode,
+    ftsBatchSize: defaultFtsBatchSize,
   );
 
   /// Loads config from [configFile] for the project at [rootPath].
@@ -207,6 +240,18 @@ class ProjectConfig {
       map['snapshot_write_batch'],
       fallback: defaultSnapshotWriteBatch,
     );
+    final snapshotIncremental = _readBool(
+      map['snapshot_incremental'],
+      fallback: defaultSnapshotIncremental,
+    );
+    final indexingMode = _readIndexingMode(
+      map['indexing_mode'],
+      fallback: defaultIndexingMode,
+    );
+    final ftsBatchSize = _readInt(
+      map['fts_batch_size'],
+      fallback: defaultFtsBatchSize,
+    );
 
     return ProjectConfig(
       rootPath: rootPath,
@@ -220,6 +265,9 @@ class ProjectConfig {
       snapshotWriteBatch: snapshotWriteBatch < 1
           ? defaultSnapshotWriteBatch
           : snapshotWriteBatch,
+      snapshotIncremental: snapshotIncremental,
+      indexingMode: indexingMode,
+      ftsBatchSize: ftsBatchSize < 1 ? defaultFtsBatchSize : ftsBatchSize,
     );
   }
 
@@ -243,6 +291,9 @@ class ProjectConfig {
     buffer.writeln('  max_file_size_mb: ${limits.maxFileSizeMb}');
     buffer.writeln('snapshot_concurrency: $snapshotConcurrency');
     buffer.writeln('snapshot_write_batch: $snapshotWriteBatch');
+    buffer.writeln('snapshot_incremental: $snapshotIncremental');
+    buffer.writeln('indexing_mode: ${_indexingModeName(indexingMode)}');
+    buffer.writeln('fts_batch_size: $ftsBatchSize');
     buffer.writeln('text_extensions:');
     for (final ext in textExtensions) {
       buffer.writeln('  - "${_escapeYaml(ext)}"');
@@ -336,5 +387,21 @@ bool _readBool(Object? value, {required bool fallback}) {
   }
   return fallback;
 }
+
+IndexingMode _readIndexingMode(
+  Object? value, {
+  required IndexingMode fallback,
+}) {
+  if (value is IndexingMode) return value;
+  if (value is String) {
+    final normalized = value.trim().toLowerCase();
+    for (final mode in IndexingMode.values) {
+      if (mode.name == normalized) return mode;
+    }
+  }
+  return fallback;
+}
+
+String _indexingModeName(IndexingMode mode) => mode.name;
 
 String _escapeYaml(String value) => value.replaceAll('"', '\\"');

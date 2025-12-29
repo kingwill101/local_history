@@ -16,6 +16,16 @@ class SnapshotCommand extends BaseCommand {
   SnapshotCommand() {
     argParser
       ..addOption('label', help: 'Optional snapshot label')
+      ..addFlag(
+        'full',
+        help: 'Force a full snapshot, ignoring stored metadata.',
+        negatable: false,
+      )
+      ..addFlag(
+        'modified-only',
+        help: 'Only snapshot files whose metadata has changed.',
+        negatable: false,
+      )
       ..addOption(
         'concurrency',
         help: 'Override snapshot worker count (file reads).',
@@ -44,6 +54,11 @@ class SnapshotCommand extends BaseCommand {
     final concurrencyRaw = argResults!['concurrency'] as String?;
     final writeBatchRaw = argResults!['write-batch'] as String?;
     final config = await loadConfig();
+    final full = argResults!['full'] as bool;
+    final modifiedOnly = argResults!['modified-only'] as bool;
+    if (full && modifiedOnly) {
+      throw usageException('Cannot combine --full with --modified-only.');
+    }
     final concurrency = _resolveConcurrency(
       config: config,
       rawOverride: concurrencyRaw,
@@ -52,6 +67,12 @@ class SnapshotCommand extends BaseCommand {
       config: config,
       rawOverride: writeBatchRaw,
     );
+    final incremental = modifiedOnly
+        ? true
+        : full
+        ? false
+        : config.snapshotIncremental;
+    final deferIndexing = config.indexingMode == IndexingMode.deferred;
     final db = await HistoryDb.open(paths.dbFile.path);
     late final SnapshotInfo snapshot;
     try {
@@ -73,7 +94,18 @@ class SnapshotCommand extends BaseCommand {
     final writeBuffer = <RevisionWrite>[];
     Future<void> flushBatch() async {
       if (batch.isEmpty) return;
-      final payloads = await Future.wait(batch.map(snapshotter.readSnapshot));
+      final metadata = incremental
+          ? await db.getFileMetadataMap(batch)
+          : const <String, FileMetadata>{};
+      final payloads = await Future.wait(
+        batch.map(
+          (path) => snapshotter.readSnapshot(
+            path,
+            previous: metadata[path],
+            incremental: incremental,
+          ),
+        ),
+      );
       for (var index = 0; index < batch.length; index += 1) {
         scanned += 1;
         final payload = payloads[index];
@@ -86,6 +118,8 @@ class SnapshotCommand extends BaseCommand {
             path: payload.path,
             content: payload.content,
             contentText: payload.contentText,
+            mtimeMs: payload.mtimeMs,
+            sizeBytes: payload.sizeBytes,
           ),
         );
       }
@@ -96,6 +130,7 @@ class SnapshotCommand extends BaseCommand {
           snapshotId: snapshot.snapshotId,
           writes: current,
           fileIdCache: fileIdCache,
+          deferIndexing: deferIndexing,
         );
         stored += revIds.length;
       }
@@ -127,6 +162,7 @@ class SnapshotCommand extends BaseCommand {
         snapshotId: snapshot.snapshotId,
         writes: writeBuffer,
         fileIdCache: fileIdCache,
+        deferIndexing: deferIndexing,
       );
       stored += revIds.length;
       writeBuffer.clear();

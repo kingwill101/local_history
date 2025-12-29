@@ -16,6 +16,7 @@ class RevisionRecord extends Model<RevisionRecord> {
     required this.content,
     this.checksum,
     this.contentText,
+    this.contentTextRaw,
   });
 
   /// Primary key for the revision row.
@@ -49,4 +50,8 @@ class RevisionRecord extends Model<RevisionRecord> {
   /// Decoded text content for search indexing.
   @OrmField(columnName: 'content_text', isNullable: true)
   final String? contentText;
+
+  /// Unindexed decoded text content stored for deferred indexing.
+  @OrmField(columnName: 'content_text_raw', isNullable: true)
+  final String? contentTextRaw;
 }
