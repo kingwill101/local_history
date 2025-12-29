@@ -16,15 +16,12 @@ jobs:
           - os: linux
             arch: x64
             runs_on: ubuntu-latest
-          - os: linux
-            arch: arm64
-            runs_on: ubuntu-24.04-arm64
           - os: macos
             arch: x64
-            runs_on: macos-13
+            runs_on: macos-15-intel
           - os: macos
             arch: arm64
-            runs_on: macos-14
+            runs_on: macos-latest
 
     steps:
       - name: Checkout
