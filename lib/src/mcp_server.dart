@@ -57,7 +57,7 @@ class LocalHistoryMcpTools {
 
   /// Tool definition for listing revision history.
   Tool get historyListTool => Tool(
-    name: 'lh.history.list',
+    name: 'history_list',
     description: 'List revision history for a file path.',
     inputSchema: Schema.object(
       properties: {
@@ -90,7 +90,7 @@ class LocalHistoryMcpTools {
 
   /// Tool definition for showing a revision by id.
   Tool get revisionShowTool => Tool(
-    name: 'lh.revision.show',
+    name: 'revision_show',
     description: 'Show a revision by id.',
     inputSchema: Schema.object(
       properties: {'revId': Schema.int(description: 'Revision id.')},
@@ -112,7 +112,7 @@ class LocalHistoryMcpTools {
 
   /// Tool definition for diffing two revisions.
   Tool get revisionDiffTool => Tool(
-    name: 'lh.revision.diff',
+    name: 'revision_diff',
     description: 'Diff two text revisions.',
     inputSchema: Schema.object(
       properties: {
@@ -137,7 +137,7 @@ class LocalHistoryMcpTools {
 
   /// Tool definition for searching historical revisions.
   Tool get historySearchTool => Tool(
-    name: 'lh.history.search',
+    name: 'history_search',
     description: 'Search across historical text revisions.',
     inputSchema: Schema.object(
       properties: {
@@ -171,7 +171,7 @@ class LocalHistoryMcpTools {
 
   /// Tool definition for verifying a revision checksum.
   Tool get revisionVerifyTool => Tool(
-    name: 'lh.revision.verify',
+    name: 'revision_verify',
     description: 'Verify a revision checksum.',
     inputSchema: Schema.object(
       properties: {'revId': Schema.int(description: 'Revision id.')},
@@ -184,7 +184,7 @@ class LocalHistoryMcpTools {
     annotations: _readOnlyAnnotations,
   );
 
-  /// Handles `lh.history.list` requests.
+  /// Handles `history_list` requests.
   FutureOr<CallToolResult> handleHistoryList(CallToolRequest request) async {
     final args = request.arguments ?? const {};
     final rawPath = _requireString(args, 'path');
@@ -222,7 +222,7 @@ class LocalHistoryMcpTools {
     });
   }
 
-  /// Handles `lh.revision.show` requests.
+  /// Handles `revision_show` requests.
   FutureOr<CallToolResult> handleRevisionShow(CallToolRequest request) async {
     final args = request.arguments ?? const {};
     final revId = _requireInt(args, 'revId');
@@ -253,7 +253,7 @@ class LocalHistoryMcpTools {
     });
   }
 
-  /// Handles `lh.revision.diff` requests.
+  /// Handles `revision_diff` requests.
   FutureOr<CallToolResult> handleRevisionDiff(CallToolRequest request) async {
     final args = request.arguments ?? const {};
     final revA = _requireInt(args, 'revA');
@@ -293,7 +293,7 @@ class LocalHistoryMcpTools {
     });
   }
 
-  /// Handles `lh.history.search` requests.
+  /// Handles `history_search` requests.
   FutureOr<CallToolResult> handleHistorySearch(CallToolRequest request) async {
     final args = request.arguments ?? const {};
     final query = _requireString(args, 'query');
@@ -336,7 +336,7 @@ class LocalHistoryMcpTools {
     });
   }
 
-  /// Handles `lh.revision.verify` requests.
+  /// Handles `revision_verify` requests.
   FutureOr<CallToolResult> handleRevisionVerify(CallToolRequest request) async {
     final args = request.arguments ?? const {};
     final revId = _requireInt(args, 'revId');

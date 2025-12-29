@@ -501,11 +501,11 @@ Verify all: 120 total, 120 ok, 0 missing, 0 mismatched.
 ## MCP Server (read-only)
 
 ### Tools exposed
-- `lh.history.list`
-- `lh.revision.show`
-- `lh.revision.diff`
-- `lh.history.search`
-- `lh.revision.verify`
+- `history_list`
+- `revision_show`
+- `revision_diff`
+- `history_search`
+- `revision_verify`
 
 ### Example client config (JSON)
 ```json
