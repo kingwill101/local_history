@@ -1,0 +1,135 @@
+import 'dart:io';
+
+
+import '../history_db.dart';
+import '../path_utils.dart';
+import 'base_command.dart';
+
+class SnapshotRestoreCommand extends BaseCommand {
+  SnapshotRestoreCommand() {
+    argParser
+      ..addFlag('force', help: 'Skip confirmation prompt')
+      ..addOption('id', help: 'Snapshot id to restore')
+      ..addOption('label', help: 'Snapshot label to restore');
+  }
+
+  @override
+  String get name => 'snapshot-restore';
+
+  @override
+  String get description => 'Restore a snapshot by id or label.';
+
+  @override
+  Future<void> run() async {
+    final io = this.io;
+    if (argResults == null) return;
+
+    final rawId = argResults!['id'] as String?;
+    final rawLabel = argResults!['label'] as String?;
+    final rest = argResults!.rest;
+
+    if (rawId != null && rawLabel != null) {
+      throw usageException(
+        'Provide either --id or --label, not both.',
+        
+      );
+    }
+
+    int? snapshotId;
+    String? label = rawLabel?.trim();
+    if (label != null && label.isEmpty) {
+      label = null;
+    }
+
+    if (rawId != null) {
+      snapshotId = parseInt(rawId, 'id');
+    } else if (label == null && rest.isNotEmpty) {
+      final candidate = rest.first.trim();
+      if (candidate.isEmpty) {
+        throw usageException('Missing snapshot id or label.');
+      }
+      if (RegExp(r'^\\d+$').hasMatch(candidate)) {
+        snapshotId = parseInt(candidate, 'id');
+      } else {
+        label = candidate;
+      }
+    }
+
+    if (snapshotId == null && label == null) {
+      throw usageException('Missing snapshot id or label.');
+    }
+
+    final db = await HistoryDb.open(paths.dbFile.path);
+    final snapshot = snapshotId != null
+        ? await db.getSnapshotById(snapshotId)
+        : await db.getSnapshotByLabel(label!);
+    if (snapshot == null) {
+      await db.close();
+      io.error('Snapshot not found.');
+      return;
+    }
+
+    final revisions = await db.listSnapshotRevisions(snapshot.snapshotId);
+    await db.close();
+
+    if (revisions.isEmpty) {
+      io.error('Snapshot ${snapshot.snapshotId} has no stored files.');
+      return;
+    }
+
+    final force = argResults!['force'] as bool;
+    if (!force) {
+      final confirmed = io.confirm(
+        'Restore snapshot ${snapshot.snapshotId} '
+        '(${revisions.length} files)?',
+        defaultValue: false,
+      );
+      if (!confirmed) {
+        io.note('Restore cancelled');
+        return;
+      }
+    }
+
+    var restored = 0;
+    var unchanged = 0;
+
+    for (final revision in revisions) {
+      if (revision.path.isEmpty) {
+        continue;
+      }
+      final absolutePath = resolveAbsolutePath(
+        rootPath: paths.root.path,
+        relativePath: revision.path,
+      );
+      final file = File(absolutePath);
+      final exists = await file.exists();
+      final shouldRestore =
+          !exists || !(await _contentMatches(file, revision.content));
+      if (!shouldRestore) {
+        unchanged += 1;
+        continue;
+      }
+      await file.parent.create(recursive: true);
+      await file.writeAsBytes(revision.content, flush: true);
+      restored += 1;
+    }
+
+    io.success(
+      'Snapshot ${snapshot.snapshotId} restored '
+      '($restored files updated, $unchanged unchanged).',
+    );
+  }
+}
+
+Future<bool> _contentMatches(File file, List<int> expected) async {
+  try {
+    final bytes = await file.readAsBytes();
+    if (bytes.length != expected.length) return false;
+    for (var i = 0; i < bytes.length; i += 1) {
+      if (bytes[i] != expected[i]) return false;
+    }
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
