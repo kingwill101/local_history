@@ -144,7 +144,7 @@ class Daemon {
     RandomAccessFile? lockHandle,
     File? heartbeatFile,
   }) : _io = io,
-       _debounceWindow = debounceWindow ?? const Duration(milliseconds: 200),
+       _cliDebounceOverride = debounceWindow,
        _configFile = configFile,
        _configReloadDebounce =
            configReloadDebounce ?? const Duration(milliseconds: 200),
@@ -166,7 +166,15 @@ class Daemon {
   /// Database handle used to persist revisions.
   final HistoryDb db;
   final Console? _io;
-  final Duration _debounceWindow;
+
+  /// Initial debounce window (used when CLI flag overrides config).
+  final Duration? _cliDebounceOverride;
+
+  /// Returns the effective debounce window, preferring the command-line override
+  /// if set, otherwise reading from current config.
+  Duration get _debounceWindow =>
+      _cliDebounceOverride ?? Duration(milliseconds: config.debounceMs);
+
   final File? _configFile;
   final Duration _configReloadDebounce;
   final Duration _reloadBackoff;
