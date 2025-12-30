@@ -217,6 +217,7 @@ class HistoryDb {
     required List<RevisionWrite> writes,
     Map<String, int>? fileIdCache,
     bool deferIndexing = false,
+    bool recordDuplicates = false,
   }) async {
     if (writes.isEmpty) return const [];
     final cache = fileIdCache ?? <String, int>{};
@@ -272,7 +273,9 @@ class HistoryDb {
         final checksum = sha256.convert(write.content).bytes;
         final lastChecksum = checksumCache[write.path];
         final isDuplicate =
-            lastChecksum != null && _listEquals(lastChecksum, checksum);
+            !recordDuplicates &&
+            lastChecksum != null &&
+            _listEquals(lastChecksum, checksum);
         final indexedText = deferIndexing ? null : write.contentText;
         final rawText = write.contentText;
         if (!isDuplicate) {
