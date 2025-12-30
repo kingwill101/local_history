@@ -156,6 +156,7 @@ class Snapshotter {
     var stored = 0;
     var skipped = 0;
     final batch = <String>[];
+    final existingPaths = <String>{};
     final resolvedBatchSize = (readBatchSize ?? config.snapshotConcurrency);
     final effectiveBatchSize = resolvedBatchSize < 1 ? 1 : resolvedBatchSize;
 
@@ -185,6 +186,7 @@ class Snapshotter {
       batch.clear();
     }
 
+    // Walk filesystem once to collect both paths to snapshot and existing paths
     await for (final entity in Directory(
       config.rootPath,
     ).list(recursive: config.watch.recursive, followLinks: false)) {
@@ -195,6 +197,9 @@ class Snapshotter {
         rootPath: config.rootPath,
         inputPath: entity.path,
       );
+      // Track all file paths found for deletion reconciliation
+      existingPaths.add(relativePath);
+      
       if (!config.isPathIncluded(relativePath)) {
         continue;
       }
@@ -207,20 +212,6 @@ class Snapshotter {
 
     // Reconcile deletions: find files that were tracked but no longer exist
     // and emit delete revisions for them
-    final existingPaths = <String>{};
-    await for (final entity in Directory(
-      config.rootPath,
-    ).list(recursive: config.watch.recursive, followLinks: false)) {
-      if (entity is! File) {
-        continue;
-      }
-      final relativePath = normalizeRelativePath(
-        rootPath: config.rootPath,
-        inputPath: entity.path,
-      );
-      existingPaths.add(relativePath);
-    }
-
     final trackedPaths = await db.getAllTrackedFilePaths();
     for (final path in trackedPaths) {
       if (!existingPaths.contains(path) && config.isPathIncluded(path)) {

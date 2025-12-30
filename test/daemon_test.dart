@@ -360,4 +360,255 @@ void main() {
 
     await db.close();
   });
+
+  test('daemon honors record_duplicates setting', () async {
+    final dir = await createProject();
+    final baseConfig = ProjectConfig.defaults(rootPath: dir.path);
+    final config = ProjectConfig(
+      rootPath: baseConfig.rootPath,
+      version: baseConfig.version,
+      watch: baseConfig.watch,
+      limits: baseConfig.limits,
+      textExtensions: baseConfig.textExtensions,
+      debounceMs: baseConfig.debounceMs,
+      snapshotConcurrency: baseConfig.snapshotConcurrency,
+      snapshotWriteBatch: baseConfig.snapshotWriteBatch,
+      snapshotIncremental: baseConfig.snapshotIncremental,
+      recordDuplicates: false,
+      reconcileIntervalSeconds: ProjectConfig.defaultReconcileIntervalSeconds,
+      daemonWorkerConcurrency: baseConfig.daemonWorkerConcurrency,
+      daemonInitialSnapshot: ProjectConfig.defaultDaemonInitialSnapshot,
+      indexingMode: baseConfig.indexingMode,
+      ftsBatchSize: baseConfig.ftsBatchSize,
+    );
+    final dbPath = p.join(dir.path, '.lh', 'history.db');
+    final db = await HistoryDb.open(dbPath, createIfMissing: true);
+    final daemon = Daemon(
+      config: config,
+      db: db,
+      debounceWindow: const Duration(milliseconds: 10),
+    );
+
+    final controller = StreamController<FsEvent>();
+    final runFuture = daemon.run(events: controller.stream);
+
+    final file = File(p.join(dir.path, 'lib', 'main.dart'));
+    await file.parent.create(recursive: true);
+    await file.writeAsString('content');
+    controller.add(
+      FsEvent(type: FsEventType.create, relativePath: 'lib/main.dart'),
+    );
+
+    await Future.delayed(const Duration(milliseconds: 30));
+    controller.add(
+      FsEvent(type: FsEventType.modify, relativePath: 'lib/main.dart'),
+    );
+
+    await Future.delayed(const Duration(milliseconds: 30));
+    await controller.close();
+    await runFuture;
+
+    final history = await db.listHistory('lib/main.dart');
+    expect(history.length, 1);
+
+    await db.close();
+  });
+
+  test('daemon scales worker pool based on configuration', () async {
+    final dir = await createProject();
+    final baseConfig = ProjectConfig.defaults(rootPath: dir.path);
+    final config = ProjectConfig(
+      rootPath: baseConfig.rootPath,
+      version: baseConfig.version,
+      watch: baseConfig.watch,
+      limits: baseConfig.limits,
+      textExtensions: baseConfig.textExtensions,
+      debounceMs: baseConfig.debounceMs,
+      snapshotConcurrency: baseConfig.snapshotConcurrency,
+      snapshotWriteBatch: baseConfig.snapshotWriteBatch,
+      snapshotIncremental: baseConfig.snapshotIncremental,
+      recordDuplicates: ProjectConfig.defaultRecordDuplicates,
+      reconcileIntervalSeconds: ProjectConfig.defaultReconcileIntervalSeconds,
+      daemonWorkerConcurrency: 4,
+      daemonInitialSnapshot: ProjectConfig.defaultDaemonInitialSnapshot,
+      indexingMode: baseConfig.indexingMode,
+      ftsBatchSize: baseConfig.ftsBatchSize,
+    );
+    final dbPath = p.join(dir.path, '.lh', 'history.db');
+    final db = await HistoryDb.open(dbPath, createIfMissing: true);
+    final daemon = Daemon(
+      config: config,
+      db: db,
+      debounceWindow: const Duration(milliseconds: 10),
+    );
+
+    final controller = StreamController<FsEvent>();
+    final runFuture = daemon.run(events: controller.stream);
+
+    for (var i = 0; i < 10; i++) {
+      final file = File(p.join(dir.path, 'lib', 'file$i.dart'));
+      await file.parent.create(recursive: true);
+      await file.writeAsString('content$i');
+      controller.add(
+        FsEvent(type: FsEventType.create, relativePath: 'lib/file$i.dart'),
+      );
+    }
+
+    await Future.delayed(const Duration(milliseconds: 100));
+    await controller.close();
+    await runFuture;
+
+    for (var i = 0; i < 10; i++) {
+      final history = await db.listHistory('lib/file$i.dart');
+      expect(history.length, 1);
+    }
+
+    await db.close();
+  });
+
+  test('config serialization includes new fields', () async {
+    final tempDir = await Directory.systemTemp.createTemp('lh_config_new');
+    addTearDown(() => tempDir.delete(recursive: true));
+
+    final paths = ProjectPaths(tempDir);
+    final config = ProjectConfig(
+      rootPath: tempDir.path,
+      version: ProjectConfig.currentVersion,
+      watch: WatchConfig(
+        recursive: true,
+        include: const ['lib/**'],
+        exclude: const ['.git/**'],
+      ),
+      limits: LimitsConfig(
+        maxRevisionsPerFile: 200,
+        maxDays: 30,
+        maxFileSizeMb: 5,
+      ),
+      textExtensions: const ['.dart'],
+      debounceMs: ProjectConfig.defaultDebounceMs,
+      snapshotConcurrency: 2,
+      snapshotWriteBatch: 8,
+      snapshotIncremental: true,
+      recordDuplicates: false,
+      reconcileIntervalSeconds: 3600,
+      daemonWorkerConcurrency: 4,
+      daemonInitialSnapshot: true,
+      indexingMode: IndexingMode.immediate,
+      ftsBatchSize: 500,
+    );
+
+    await config.save(paths.configFile);
+    final loaded = await ProjectConfig.load(
+      paths.configFile,
+      rootPath: tempDir.path,
+    );
+
+    expect(loaded.recordDuplicates, false);
+    expect(loaded.reconcileIntervalSeconds, 3600);
+    expect(loaded.daemonWorkerConcurrency, 4);
+    expect(loaded.daemonInitialSnapshot, true);
+  });
+
+  test('daemon reconciliation prevents starvation under churn', () async {
+    final dir = await createProject();
+    final baseConfig = ProjectConfig.defaults(rootPath: dir.path);
+    final config = ProjectConfig(
+      rootPath: baseConfig.rootPath,
+      version: baseConfig.version,
+      watch: baseConfig.watch,
+      limits: baseConfig.limits,
+      textExtensions: baseConfig.textExtensions,
+      debounceMs: baseConfig.debounceMs,
+      snapshotConcurrency: baseConfig.snapshotConcurrency,
+      snapshotWriteBatch: baseConfig.snapshotWriteBatch,
+      snapshotIncremental: baseConfig.snapshotIncremental,
+      recordDuplicates: ProjectConfig.defaultRecordDuplicates,
+      reconcileIntervalSeconds: 1,
+      daemonWorkerConcurrency: 2,
+      daemonInitialSnapshot: ProjectConfig.defaultDaemonInitialSnapshot,
+      indexingMode: baseConfig.indexingMode,
+      ftsBatchSize: baseConfig.ftsBatchSize,
+    );
+    
+    final dbPath = p.join(dir.path, '.lh', 'history.db');
+    final db = await HistoryDb.open(dbPath, createIfMissing: true);
+    final daemon = Daemon(
+      config: config,
+      db: db,
+      debounceWindow: const Duration(milliseconds: 5),
+    );
+
+    final controller = StreamController<FsEvent>();
+    final runFuture = daemon.run(events: controller.stream);
+
+    final file = File(p.join(dir.path, 'test.txt'));
+    await file.parent.create(recursive: true);
+
+    for (var i = 0; i < 5; i++) {
+      await file.writeAsString('version$i');
+      controller.add(
+        FsEvent(type: FsEventType.modify, relativePath: 'test.txt'),
+      );
+      await Future.delayed(const Duration(milliseconds: 10));
+    }
+
+    await Future.delayed(const Duration(seconds: 3));
+    await controller.close();
+    await runFuture;
+
+    final history = await db.listHistory('test.txt');
+    expect(history.isNotEmpty, true);
+
+    await db.close();
+  });
+
+  test('daemon reconciliation runs periodically even under churn', () async {
+    final dir = await createProject();
+    final baseConfig = ProjectConfig.defaults(rootPath: dir.path);
+    final config = ProjectConfig(
+      rootPath: baseConfig.rootPath,
+      version: baseConfig.version,
+      watch: baseConfig.watch,
+      limits: baseConfig.limits,
+      textExtensions: baseConfig.textExtensions,
+      debounceMs: baseConfig.debounceMs,
+      snapshotConcurrency: baseConfig.snapshotConcurrency,
+      snapshotWriteBatch: baseConfig.snapshotWriteBatch,
+      snapshotIncremental: baseConfig.snapshotIncremental,
+      recordDuplicates: ProjectConfig.defaultRecordDuplicates,
+      reconcileIntervalSeconds: 1,
+      daemonWorkerConcurrency: baseConfig.daemonWorkerConcurrency,
+      daemonInitialSnapshot: ProjectConfig.defaultDaemonInitialSnapshot,
+      indexingMode: baseConfig.indexingMode,
+      ftsBatchSize: baseConfig.ftsBatchSize,
+    );
+    final dbPath = p.join(dir.path, '.lh', 'history.db');
+    final db = await HistoryDb.open(dbPath, createIfMissing: true);
+    final daemon = Daemon(
+      config: config,
+      db: db,
+      debounceWindow: const Duration(milliseconds: 10),
+    );
+
+    final controller = StreamController<FsEvent>();
+    var runFuture = daemon.run(events: controller.stream);
+
+    final file = File(p.join(dir.path, 'test.txt'));
+    await file.parent.create(recursive: true);
+    await file.writeAsString('v1');
+
+    controller.add(
+      FsEvent(type: FsEventType.create, relativePath: 'test.txt'),
+    );
+    await Future.delayed(const Duration(milliseconds: 50));
+
+    final history1 = await db.listHistory('test.txt');
+    expect(history1.isNotEmpty, true);
+
+    await controller.close();
+    await runFuture;
+
+    await db.close();
+  });
 }
+

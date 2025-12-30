@@ -3,6 +3,7 @@ library;
 
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
@@ -13,6 +14,7 @@ import 'fs_watcher.dart';
 import 'history_db.dart';
 import 'path_utils.dart';
 import 'project_config.dart';
+import 'project_paths.dart';
 import 'snapshotter.dart';
 
 /// Runs the Local History watcher daemon.
@@ -193,11 +195,15 @@ class Daemon {
   final Queue<_WorkItem> _queue = Queue<_WorkItem>();
   StreamController<void>? _workController;
   final List<Future<void>> _workerFutures = [];
+  int _workersToStop = 0;
   Completer<void>? _drainCompleter;
   Timer? _reconcileTimer;
   bool _reconcileRunning = false;
+  int? _lastReconcileAttemptMs;
   int _activeWorkers = 0;
   late Snapshotter _snapshotter;
+  Timer? _heartbeatTimer;
+  int? _lastProcessedMs;
 
   /// Starts watching for filesystem changes and persists revisions.
   ///
@@ -219,6 +225,7 @@ class Daemon {
     }
     _startConfigWatcher();
     _startReconcileLoop();
+    _startHeartbeat();
 
     _io?.info('Watching ${config.rootPath}');
 
@@ -240,6 +247,7 @@ class Daemon {
     try {
       await _drainPending();
     } finally {
+      _stopHeartbeat();
       await _shutdownWorkers();
       await _configSubscription?.cancel();
       _reconcileTimer?.cancel();
@@ -313,10 +321,21 @@ class Daemon {
   void _ensureWorkers() {
     _workController ??= StreamController<void>.broadcast();
     final desired = _desiredWorkerCount();
+    
+    // Scale up: add new workers if needed
     while (_workerFutures.length < desired) {
       final workerId = _workerFutures.length + 1;
       _workerFutures.add(_runWorker(workerId));
       _io?.verbose('Worker $workerId started.');
+    }
+    
+    // Scale down: cap the number of workers by signaling excess ones to stop
+    if (_workerFutures.length > desired) {
+      final excessCount = _workerFutures.length - desired;
+      _io?.verbose('Scaling down: stopping $excessCount worker(s).');
+      // Workers will naturally stop consuming when they finish current items
+      // and will be removed from the list when they complete
+      _workersToStop = excessCount;
     }
   }
 
@@ -330,6 +349,13 @@ class Daemon {
     final controller = _workController;
     if (controller == null) return;
     await for (final _ in controller.stream) {
+      // Check if this worker should stop due to scale-down
+      if (_workersToStop > 0) {
+        _workersToStop -= 1;
+        _io?.verbose('Worker $workerId stopping due to scale-down.');
+        break;
+      }
+      
       while (_queue.isNotEmpty) {
         final item = _queue.removeFirst();
         _activeWorkers += 1;
@@ -352,6 +378,7 @@ class Daemon {
           } else {
             await _snapshotter.snapshotPath(item.path);
           }
+          _lastProcessedMs = DateTime.now().millisecondsSinceEpoch;
         } catch (error) {
           _io?.warning('Failed to snapshot ${item.path}: $error');
         } finally {
@@ -458,15 +485,31 @@ class Daemon {
   }
 
   Future<void> _runReconcile() async {
-    if (_reconcileRunning || _reloadPending || _activeWorkers > 0) {
-      return;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final lastAttempt = _lastReconcileAttemptMs;
+    final timeSinceLastAttempt = lastAttempt != null ? now - lastAttempt : null;
+    
+    // Force reconciliation if no attempt has been made in a very long time (5x the configured interval)
+    // This prevents starvation when there's continuous churn
+    final intervalSeconds = config.reconcileIntervalSeconds;
+    final forceReconcileMs = intervalSeconds > 0 ? intervalSeconds * 5000 : 0;
+    final shouldForceReconcile = timeSinceLastAttempt != null && 
+                                 timeSinceLastAttempt > forceReconcileMs &&
+                                 forceReconcileMs > 0;
+    
+    if (!shouldForceReconcile) {
+      if (_reconcileRunning || _reloadPending || _activeWorkers > 0) {
+        return;
+      }
+      if (_pending.isNotEmpty || _pendingDeadlineMs.isNotEmpty) {
+        return;
+      }
+      if (_remainingBackoffMs() > 0) {
+        return;
+      }
     }
-    if (_pending.isNotEmpty || _pendingDeadlineMs.isNotEmpty) {
-      return;
-    }
-    if (_remainingBackoffMs() > 0) {
-      return;
-    }
+    
+    _lastReconcileAttemptMs = now;
     _reconcileRunning = true;
     try {
       final result = await _snapshotter.snapshotAllIncremental();
@@ -517,6 +560,38 @@ class Daemon {
 
   bool _shouldRunInitialSnapshot() {
     return _initialSnapshotOverride ?? config.daemonInitialSnapshot;
+  }
+
+  void _startHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(
+      const Duration(seconds: 2),
+      (_) => unawaited(_writeHeartbeat()),
+    );
+    unawaited(_writeHeartbeat());
+  }
+
+  void _stopHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+    unawaited(_writeHeartbeat());
+  }
+
+  Future<void> _writeHeartbeat() async {
+    final statusFile = ProjectPaths(Directory(config.rootPath)).daemonStatusFile;
+    final payload = <String, Object?>{
+      'updatedAtMs': DateTime.now().millisecondsSinceEpoch,
+      'lastProcessedMs': _lastProcessedMs,
+      'queueDepth': _queue.length + _pending.length,
+      'pendingDepth': _pending.length,
+      'queueCount': _queue.length,
+    };
+    try {
+      await statusFile.parent.create(recursive: true);
+      await statusFile.writeAsString(jsonEncode(payload));
+    } catch (_) {
+      // Best-effort heartbeat; ignore failures.
+    }
   }
 
   Future<void> _runInitialSnapshot() async {
