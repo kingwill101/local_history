@@ -70,6 +70,7 @@ class ProjectConfig {
     required this.snapshotConcurrency,
     required this.snapshotWriteBatch,
     required this.snapshotIncremental,
+    required this.recordDuplicates,
     required this.indexingMode,
     required this.ftsBatchSize,
   }) : _includeGlobs = _buildGlobs(watch.include),
@@ -99,6 +100,9 @@ class ProjectConfig {
 
   /// Whether snapshots should skip unchanged files by default.
   final bool snapshotIncremental;
+
+  /// Whether to store duplicate revisions even when content matches.
+  final bool recordDuplicates;
 
   /// Full-text indexing mode for revisions.
   final IndexingMode indexingMode;
@@ -157,6 +161,9 @@ class ProjectConfig {
   /// Default indexing mode.
   static const IndexingMode defaultIndexingMode = IndexingMode.immediate;
 
+  /// Default duplicate revision recording.
+  static const bool defaultRecordDuplicates = false;
+
   /// Default deferred indexing batch size.
   static const int defaultFtsBatchSize = 500;
 
@@ -178,6 +185,7 @@ class ProjectConfig {
     snapshotConcurrency: defaultSnapshotConcurrency,
     snapshotWriteBatch: defaultSnapshotWriteBatch,
     snapshotIncremental: defaultSnapshotIncremental,
+    recordDuplicates: defaultRecordDuplicates,
     indexingMode: defaultIndexingMode,
     ftsBatchSize: defaultFtsBatchSize,
   );
@@ -245,6 +253,10 @@ class ProjectConfig {
       map['snapshot_incremental'],
       fallback: defaultSnapshotIncremental,
     );
+    final recordDuplicates = _readBool(
+      map['record_duplicates'],
+      fallback: defaultRecordDuplicates,
+    );
     final indexingMode = _readIndexingMode(
       map['indexing_mode'],
       fallback: defaultIndexingMode,
@@ -267,6 +279,7 @@ class ProjectConfig {
           ? defaultSnapshotWriteBatch
           : snapshotWriteBatch,
       snapshotIncremental: snapshotIncremental,
+      recordDuplicates: recordDuplicates,
       indexingMode: indexingMode,
       ftsBatchSize: ftsBatchSize < 1 ? defaultFtsBatchSize : ftsBatchSize,
     );
@@ -293,6 +306,7 @@ class ProjectConfig {
     buffer.writeln('snapshot_concurrency: $snapshotConcurrency');
     buffer.writeln('snapshot_write_batch: $snapshotWriteBatch');
     buffer.writeln('snapshot_incremental: $snapshotIncremental');
+    buffer.writeln('record_duplicates: $recordDuplicates');
     buffer.writeln('indexing_mode: ${_indexingModeName(indexingMode)}');
     buffer.writeln('fts_batch_size: $ftsBatchSize');
     buffer.writeln('text_extensions:');

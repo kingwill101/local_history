@@ -111,6 +111,7 @@ class Snapshotter {
       mtimeMs: payload.mtimeMs,
       sizeBytes: payload.sizeBytes,
       deferIndexing: deferIndexing,
+      recordDuplicates: config.recordDuplicates,
     );
     if (revId <= 0) {
       return null;
