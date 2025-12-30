@@ -205,6 +205,34 @@ class Snapshotter {
     }
     await flushBatch();
 
+    // Reconcile deletions: find files that were tracked but no longer exist
+    // and emit delete revisions for them
+    final existingPaths = <String>{};
+    await for (final entity in Directory(
+      config.rootPath,
+    ).list(recursive: config.watch.recursive, followLinks: false)) {
+      if (entity is! File) {
+        continue;
+      }
+      final relativePath = normalizeRelativePath(
+        rootPath: config.rootPath,
+        inputPath: entity.path,
+      );
+      existingPaths.add(relativePath);
+    }
+
+    final trackedPaths = await db.getAllTrackedFilePaths();
+    for (final path in trackedPaths) {
+      if (!existingPaths.contains(path) && config.isPathIncluded(path)) {
+        try {
+          await snapshotDelete(path);
+          stored += 1;
+        } catch (error) {
+          skipped += 1;
+        }
+      }
+    }
+
     return SnapshotAllResult(
       scanned: scanned,
       stored: stored,
