@@ -14,4 +14,5 @@ export 'snapshot_command.dart';
 export 'snapshot_restore_command.dart';
 export 'search_command.dart';
 export 'show_command.dart';
+export 'status_command.dart';
 export 'verify_command.dart';

@@ -2,6 +2,7 @@
 library;
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
@@ -140,13 +141,15 @@ class Daemon {
     Duration? reloadBackoff,
     File? lockFile,
     RandomAccessFile? lockHandle,
+    File? heartbeatFile,
   }) : _io = io,
        _debounceWindow = debounceWindow ?? const Duration(milliseconds: 200),
        _configFile = configFile,
        _configReloadDebounce =
            configReloadDebounce ?? const Duration(milliseconds: 200),
        _reloadBackoff = reloadBackoff ?? const Duration(milliseconds: 150),
-       _lockFile = lockFile {
+       _lockFile = lockFile,
+       _heartbeatFile = heartbeatFile {
     if (lockHandle != null) {
       _lockHandle = lockHandle;
       _lockAcquired = true;
@@ -167,9 +170,12 @@ class Daemon {
   final Duration _configReloadDebounce;
   final Duration _reloadBackoff;
   final File? _lockFile;
+  final File? _heartbeatFile;
   RandomAccessFile? _lockHandle;
   StreamSubscription<WatchEvent>? _configSubscription;
   Timer? _reloadTimer;
+  Timer? _heartbeatTimer;
+  int? _lastProcessedMs;
   bool _reloadPending = false;
   int? _backoffUntilMs;
   bool _lockAcquired = false;
@@ -198,6 +204,7 @@ class Daemon {
         : null;
     _snapshotter = Snapshotter(config: config, db: db);
     _startConfigWatcher();
+    _startHeartbeat();
 
     _io?.info('Watching ${config.rootPath}');
 
@@ -220,6 +227,7 @@ class Daemon {
       await _drainPending();
     } finally {
       await _configSubscription?.cancel();
+      _stopHeartbeat();
       await _releaseLock();
     }
   }
@@ -298,6 +306,8 @@ class Daemon {
           }
         } catch (error) {
           _io?.warning('Failed to snapshot ${item.path}: $error');
+        } finally {
+          _lastProcessedMs = DateTime.now().millisecondsSinceEpoch;
         }
       }
     } finally {
@@ -368,6 +378,40 @@ class Daemon {
       return 0;
     }
     return remaining;
+  }
+
+  void _startHeartbeat() {
+    if (_heartbeatFile == null) return;
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(
+      const Duration(seconds: 2),
+      (_) => unawaited(_writeHeartbeat()),
+    );
+    unawaited(_writeHeartbeat());
+  }
+
+  void _stopHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+    unawaited(_writeHeartbeat());
+  }
+
+  Future<void> _writeHeartbeat() async {
+    final heartbeatFile = _heartbeatFile;
+    if (heartbeatFile == null) return;
+    final payload = <String, Object?>{
+      'updatedAtMs': DateTime.now().millisecondsSinceEpoch,
+      'lastProcessedMs': _lastProcessedMs,
+      'queueDepth': _queue.length + _pending.length,
+      'pendingDepth': _pending.length,
+      'queueCount': _queue.length,
+    };
+    try {
+      await heartbeatFile.parent.create(recursive: true);
+      await heartbeatFile.writeAsString(jsonEncode(payload));
+    } catch (_) {
+      // Best-effort heartbeat; ignore failures.
+    }
   }
 
   Future<void> _acquireLock() async {

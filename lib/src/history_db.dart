@@ -345,6 +345,15 @@ class HistoryDb {
         .toList(growable: false);
   }
 
+  /// Returns the newest revision timestamp in epoch milliseconds.
+  Future<int?> getLatestRevisionTimestampMs() async {
+    final latest = await _dataSource
+        .query<RevisionRecord>()
+        .orderBy('timestampMs', descending: true)
+        .first();
+    return latest?.timestampMs;
+  }
+
   /// Returns the revision payload for [revId], or `null` if not found.
   Future<HistoryRevision?> getRevision(int revId) async {
     final revision = await _dataSource
