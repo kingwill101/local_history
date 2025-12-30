@@ -133,6 +133,57 @@ void main() {
     await db.close();
   });
 
+  test('daemon processes multiple events with worker pool', () async {
+    final dir = await createProject();
+    final baseConfig = ProjectConfig.defaults(rootPath: dir.path);
+    final config = ProjectConfig(
+      rootPath: baseConfig.rootPath,
+      version: baseConfig.version,
+      watch: baseConfig.watch,
+      limits: baseConfig.limits,
+      textExtensions: baseConfig.textExtensions,
+      snapshotConcurrency: baseConfig.snapshotConcurrency,
+      snapshotWriteBatch: baseConfig.snapshotWriteBatch,
+      snapshotIncremental: baseConfig.snapshotIncremental,
+      daemonWorkerConcurrency: 2,
+      indexingMode: baseConfig.indexingMode,
+      ftsBatchSize: baseConfig.ftsBatchSize,
+    );
+    final dbPath = p.join(dir.path, '.lh', 'history.db');
+    final db = await HistoryDb.open(dbPath, createIfMissing: true);
+    final daemon = Daemon(
+      config: config,
+      db: db,
+      debounceWindow: const Duration(milliseconds: 10),
+    );
+
+    final controller = StreamController<FsEvent>();
+    final runFuture = daemon.run(events: controller.stream);
+
+    final fileA = File(p.join(dir.path, 'lib', 'a.dart'));
+    final fileB = File(p.join(dir.path, 'lib', 'b.dart'));
+    await fileA.parent.create(recursive: true);
+    await fileA.writeAsString('alpha');
+    await fileB.writeAsString('beta');
+    controller.add(
+      FsEvent(type: FsEventType.create, relativePath: 'lib/a.dart'),
+    );
+    controller.add(
+      FsEvent(type: FsEventType.create, relativePath: 'lib/b.dart'),
+    );
+
+    await Future.delayed(const Duration(milliseconds: 30));
+    await controller.close();
+    await runFuture;
+
+    final historyA = await db.listHistory('lib/a.dart');
+    final historyB = await db.listHistory('lib/b.dart');
+    expect(historyA.length, 1);
+    expect(historyB.length, 1);
+
+    await db.close();
+  });
+
   test('daemon reloads config and applies new include rules', () async {
     final dir = await createProject();
     final configFile = File(p.join(dir.path, '.lh', 'config.yaml'));
@@ -154,7 +205,7 @@ void main() {
       snapshotConcurrency: 2,
       snapshotWriteBatch: 8,
       snapshotIncremental: true,
-      reconcileIntervalSeconds: 0,
+      daemonWorkerConcurrency: 2,
       indexingMode: IndexingMode.immediate,
       ftsBatchSize: 500,
     );
@@ -194,7 +245,7 @@ void main() {
       snapshotConcurrency: 3,
       snapshotWriteBatch: 8,
       snapshotIncremental: initial.snapshotIncremental,
-      reconcileIntervalSeconds: initial.reconcileIntervalSeconds,
+      daemonWorkerConcurrency: initial.daemonWorkerConcurrency,
       indexingMode: initial.indexingMode,
       ftsBatchSize: initial.ftsBatchSize,
     );

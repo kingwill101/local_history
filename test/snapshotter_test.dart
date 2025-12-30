@@ -62,7 +62,7 @@ void main() {
       snapshotConcurrency: 1,
       snapshotWriteBatch: 8,
       snapshotIncremental: true,
-      reconcileIntervalSeconds: 0,
+      daemonWorkerConcurrency: 1,
       indexingMode: IndexingMode.immediate,
       ftsBatchSize: 500,
     );
@@ -101,7 +101,7 @@ void main() {
       snapshotConcurrency: 1,
       snapshotWriteBatch: 8,
       snapshotIncremental: true,
-      reconcileIntervalSeconds: 0,
+      daemonWorkerConcurrency: 1,
       indexingMode: IndexingMode.immediate,
       ftsBatchSize: 500,
     );
@@ -141,7 +141,7 @@ void main() {
       snapshotConcurrency: 1,
       snapshotWriteBatch: 8,
       snapshotIncremental: true,
-      reconcileIntervalSeconds: 0,
+      daemonWorkerConcurrency: 1,
       indexingMode: IndexingMode.immediate,
       ftsBatchSize: 500,
     );

@@ -162,7 +162,7 @@ void main() {
       snapshotConcurrency: 1,
       snapshotWriteBatch: 4,
       snapshotIncremental: config.snapshotIncremental,
-      reconcileIntervalSeconds: config.reconcileIntervalSeconds,
+      daemonWorkerConcurrency: config.daemonWorkerConcurrency,
       indexingMode: config.indexingMode,
       ftsBatchSize: config.ftsBatchSize,
     );

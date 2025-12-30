@@ -195,8 +195,10 @@ class Daemon {
   final Map<String, int> _pendingDeadlineMs = {};
   Timer? _debounceTimer;
   final Queue<_WorkItem> _queue = Queue<_WorkItem>();
-  Completer<void>? _workerCompleter;
-  bool _workerRunning = false;
+  StreamController<void>? _workController;
+  final List<Future<void>> _workerFutures = [];
+  Completer<void>? _drainCompleter;
+  int _activeWorkers = 0;
   late Snapshotter _snapshotter;
   Timer? _reconcileTimer;
   bool _reconcileRunning = false;
@@ -242,6 +244,7 @@ class Daemon {
     try {
       await _drainPending();
     } finally {
+      await _shutdownWorkers();
       await _configSubscription?.cancel();
       _reconcileTimer?.cancel();
       await _releaseLock();
@@ -297,25 +300,54 @@ class Daemon {
 
   void _enqueue(String path, FsEventType type) {
     _queue.add(_WorkItem(path, type));
-    _startWorker();
+    _signalWork();
   }
 
-  void _startWorker() {
-    if (_workerRunning) return;
-    _workerRunning = true;
-    _workerCompleter = Completer<void>();
-    unawaited(_runWorker());
+  void _signalWork() {
+    _ensureWorkers();
+    _drainCompleter ??= Completer<void>();
+    final controller = _workController;
+    if (controller == null || controller.isClosed) {
+      return;
+    }
+    controller.add(null);
+    _logQueueDepth();
   }
 
-  Future<void> _runWorker() async {
-    try {
+  void _ensureWorkers() {
+    _workController ??= StreamController<void>.broadcast();
+    final desired = _desiredWorkerCount();
+    while (_workerFutures.length < desired) {
+      final workerId = _workerFutures.length + 1;
+      _workerFutures.add(_runWorker(workerId));
+      _io?.verbose('Worker $workerId started.');
+    }
+  }
+
+  int _desiredWorkerCount() {
+    final configured = config.daemonWorkerConcurrency;
+    if (configured < 1) return 1;
+    return configured;
+  }
+
+  Future<void> _runWorker(int workerId) async {
+    final controller = _workController;
+    if (controller == null) return;
+    await for (final _ in controller.stream) {
       while (_queue.isNotEmpty) {
         final item = _queue.removeFirst();
+        _activeWorkers += 1;
+        _io?.verbose(
+          'Worker $workerId processing ${item.path} '
+          '(queue: ${_queue.length}, active: $_activeWorkers).',
+        );
         final backoffMs = _remainingBackoffMs();
         if (backoffMs > 0) {
           await Future<void>.delayed(Duration(milliseconds: backoffMs));
         }
         if (!_reloadPending && !config.isPathIncluded(item.path)) {
+          _activeWorkers -= 1;
+          _checkDrainCompletion();
           continue;
         }
         try {
@@ -327,13 +359,12 @@ class Daemon {
         } catch (error) {
           _io?.warning('Failed to snapshot ${item.path}: $error');
         } finally {
-          _lastProcessedMs = DateTime.now().millisecondsSinceEpoch;
+          _activeWorkers -= 1;
+          _checkDrainCompletion();
         }
       }
-    } finally {
-      _workerRunning = false;
-      _workerCompleter?.complete();
     }
+    _io?.verbose('Worker $workerId stopped.');
   }
 
   Future<void> _drainPending() async {
@@ -345,8 +376,36 @@ class Daemon {
       _pending.clear();
       _pendingDeadlineMs.clear();
     }
-    _startWorker();
-    await _workerCompleter?.future;
+    if (_queue.isNotEmpty) {
+      _signalWork();
+    } else if (_activeWorkers > 0) {
+      _drainCompleter ??= Completer<void>();
+    } else {
+      return;
+    }
+    await _drainCompleter?.future;
+  }
+
+  void _checkDrainCompletion() {
+    if (_queue.isEmpty && _activeWorkers == 0) {
+      _drainCompleter?.complete();
+      _drainCompleter = null;
+      _logQueueDepth();
+    }
+  }
+
+  Future<void> _shutdownWorkers() async {
+    await _drainCompleter?.future;
+    await _workController?.close();
+    if (_workerFutures.isNotEmpty) {
+      await Future.wait(_workerFutures);
+    }
+    _workerFutures.clear();
+    _workController = null;
+  }
+
+  void _logQueueDepth() {
+    _io?.verbose('Queue depth: ${_queue.length}, active: $_activeWorkers.');
   }
 
   void _startConfigWatcher() {
