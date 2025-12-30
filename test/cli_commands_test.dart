@@ -1,5 +1,6 @@
 /// CLI tests for core commands.
 library;
+
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -379,6 +380,44 @@ void main() {
     final restoredFile = File(p.join(dir.path, 'lib', 'restore.txt'));
     expect(await restoredFile.exists(), true);
     expect(await restoredFile.readAsString(), 'restored');
+  });
+
+  test('lh restore records revision when daemon is not running', () async {
+    final dir = await createProject();
+    await runCliHarness(['init'], cwd: dir);
+
+    final paths = ProjectPaths(dir);
+    final db = await HistoryDb.open(paths.dbFile.path);
+    final originalRevId = await db.insertRevision(
+      path: 'lib/restore.txt',
+      timestampMs: 1000,
+      changeType: 'create',
+      content: Uint8List.fromList('original'.codeUnits),
+      contentText: 'original',
+    );
+    await db.insertRevision(
+      path: 'lib/restore.txt',
+      timestampMs: 2000,
+      changeType: 'modify',
+      content: Uint8List.fromList('updated'.codeUnits),
+      contentText: 'updated',
+    );
+    await db.close();
+
+    final result = await runCliHarness([
+      'restore',
+      '$originalRevId',
+      '--force',
+    ], cwd: dir);
+    expect(result.exitCode, 0);
+
+    final afterDb = await HistoryDb.open(paths.dbFile.path);
+    final history = await afterDb.listHistory('lib/restore.txt');
+    expect(history.length, 3);
+    final restored = await afterDb.getRevision(history.first.revId);
+    await afterDb.close();
+
+    expect(restored?.content, Uint8List.fromList('original'.codeUnits));
   });
 
   test('lh restore can be cancelled', () async {
