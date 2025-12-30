@@ -1,5 +1,6 @@
 /// CLI command that runs the Local History daemon.
 library;
+
 import 'dart:async';
 import 'dart:io';
 
@@ -23,6 +24,10 @@ class DaemonCommand extends BaseCommand {
       ..addOption(
         'debounce-ms',
         help: 'Override debounce window in milliseconds.',
+      )
+      ..addFlag(
+        'initial-snapshot',
+        help: 'Run an initial snapshot pass before watching for changes.',
       );
   }
 
@@ -47,6 +52,9 @@ class DaemonCommand extends BaseCommand {
     final debounceMs = debounceRaw == null
         ? null
         : parseInt(debounceRaw, 'debounce-ms');
+    final initialSnapshotOverride = argResults!.wasParsed('initial-snapshot')
+        ? argResults!['initial-snapshot'] as bool
+        : null;
     final injectedEvents = eventsOverride;
     RandomAccessFile? lockHandle;
     HistoryDb? db;
@@ -76,7 +84,7 @@ class DaemonCommand extends BaseCommand {
         configFile: injectedEvents == null ? paths.configFile : null,
         lockFile: paths.lockFile,
         lockHandle: lockHandle,
-        heartbeatFile: paths.daemonStatusFile,
+        initialSnapshotOverride: initialSnapshotOverride,
       );
       await daemon.run(events: injectedEvents, maxEvents: maxEvents);
     } on StateError catch (error) {

@@ -1,5 +1,6 @@
 /// Daemon process that watches the filesystem and records revisions.
 library;
+
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
@@ -11,6 +12,7 @@ import 'package:watcher/watcher.dart';
 
 import 'fs_watcher.dart';
 import 'history_db.dart';
+import 'path_utils.dart';
 import 'project_config.dart';
 import 'snapshotter.dart';
 
@@ -141,7 +143,7 @@ class Daemon {
     Duration? reloadBackoff,
     File? lockFile,
     RandomAccessFile? lockHandle,
-    File? heartbeatFile,
+    bool? initialSnapshotOverride,
   }) : _io = io,
        _debounceWindow = debounceWindow ?? const Duration(milliseconds: 200),
        _configFile = configFile,
@@ -149,7 +151,7 @@ class Daemon {
            configReloadDebounce ?? const Duration(milliseconds: 200),
        _reloadBackoff = reloadBackoff ?? const Duration(milliseconds: 150),
        _lockFile = lockFile,
-       _heartbeatFile = heartbeatFile {
+       _initialSnapshotOverride = initialSnapshotOverride {
     if (lockHandle != null) {
       _lockHandle = lockHandle;
       _lockAcquired = true;
@@ -172,6 +174,7 @@ class Daemon {
   final File? _lockFile;
   final File? _heartbeatFile;
   RandomAccessFile? _lockHandle;
+  final bool? _initialSnapshotOverride;
   StreamSubscription<WatchEvent>? _configSubscription;
   Timer? _reloadTimer;
   Timer? _heartbeatTimer;
@@ -203,6 +206,9 @@ class Daemon {
           )
         : null;
     _snapshotter = Snapshotter(config: config, db: db);
+    if (_shouldRunInitialSnapshot()) {
+      await _runInitialSnapshot();
+    }
     _startConfigWatcher();
     _startHeartbeat();
 
@@ -433,6 +439,47 @@ class Daemon {
     _lockAcquired = false;
     await releaseLockHandle(_lockFile, _lockHandle);
     _lockHandle = null;
+  }
+
+  bool _shouldRunInitialSnapshot() {
+    return _initialSnapshotOverride ?? config.daemonInitialSnapshot;
+  }
+
+  Future<void> _runInitialSnapshot() async {
+    var scanned = 0;
+    var stored = 0;
+    var skipped = 0;
+    await for (final entity in Directory(
+      config.rootPath,
+    ).list(recursive: true, followLinks: false)) {
+      if (entity is! File) {
+        continue;
+      }
+      final relativePath = normalizeRelativePath(
+        rootPath: config.rootPath,
+        inputPath: entity.path,
+      );
+      if (!config.isPathIncluded(relativePath)) {
+        skipped += 1;
+        continue;
+      }
+      scanned += 1;
+      try {
+        final revId = await _snapshotter.snapshotPath(relativePath);
+        if (revId != null && revId > 0) {
+          stored += 1;
+        } else {
+          skipped += 1;
+        }
+      } catch (error) {
+        skipped += 1;
+        _io?.warning('Failed to snapshot $relativePath: $error');
+      }
+    }
+    _io?.info(
+      'Initial snapshot complete: $stored revisions recorded '
+      '($scanned files scanned, $skipped skipped).',
+    );
   }
 }
 

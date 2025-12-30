@@ -161,7 +161,7 @@ void main() {
       snapshotConcurrency: 1,
       snapshotWriteBatch: 4,
       snapshotIncremental: config.snapshotIncremental,
-      recordDuplicates: config.recordDuplicates,
+      daemonInitialSnapshot: config.daemonInitialSnapshot,
       indexingMode: config.indexingMode,
       ftsBatchSize: config.ftsBatchSize,
     );

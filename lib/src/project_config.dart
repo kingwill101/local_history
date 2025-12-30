@@ -1,5 +1,6 @@
 /// Configuration models and helpers for Local History projects.
 library;
+
 import 'dart:io';
 
 import 'package:glob/glob.dart';
@@ -70,7 +71,7 @@ class ProjectConfig {
     required this.snapshotConcurrency,
     required this.snapshotWriteBatch,
     required this.snapshotIncremental,
-    required this.recordDuplicates,
+    required this.daemonInitialSnapshot,
     required this.indexingMode,
     required this.ftsBatchSize,
   }) : _includeGlobs = _buildGlobs(watch.include),
@@ -101,8 +102,8 @@ class ProjectConfig {
   /// Whether snapshots should skip unchanged files by default.
   final bool snapshotIncremental;
 
-  /// Whether to store duplicate revisions even when content matches.
-  final bool recordDuplicates;
+  /// Whether daemon startup should capture an initial snapshot.
+  final bool daemonInitialSnapshot;
 
   /// Full-text indexing mode for revisions.
   final IndexingMode indexingMode;
@@ -158,6 +159,9 @@ class ProjectConfig {
   /// Default incremental snapshot setting.
   static const bool defaultSnapshotIncremental = true;
 
+  /// Default initial daemon snapshot setting.
+  static const bool defaultDaemonInitialSnapshot = false;
+
   /// Default indexing mode.
   static const IndexingMode defaultIndexingMode = IndexingMode.immediate;
 
@@ -185,7 +189,7 @@ class ProjectConfig {
     snapshotConcurrency: defaultSnapshotConcurrency,
     snapshotWriteBatch: defaultSnapshotWriteBatch,
     snapshotIncremental: defaultSnapshotIncremental,
-    recordDuplicates: defaultRecordDuplicates,
+    daemonInitialSnapshot: defaultDaemonInitialSnapshot,
     indexingMode: defaultIndexingMode,
     ftsBatchSize: defaultFtsBatchSize,
   );
@@ -253,9 +257,9 @@ class ProjectConfig {
       map['snapshot_incremental'],
       fallback: defaultSnapshotIncremental,
     );
-    final recordDuplicates = _readBool(
-      map['record_duplicates'],
-      fallback: defaultRecordDuplicates,
+    final daemonInitialSnapshot = _readBool(
+      map['daemon_initial_snapshot'],
+      fallback: defaultDaemonInitialSnapshot,
     );
     final indexingMode = _readIndexingMode(
       map['indexing_mode'],
@@ -279,7 +283,7 @@ class ProjectConfig {
           ? defaultSnapshotWriteBatch
           : snapshotWriteBatch,
       snapshotIncremental: snapshotIncremental,
-      recordDuplicates: recordDuplicates,
+      daemonInitialSnapshot: daemonInitialSnapshot,
       indexingMode: indexingMode,
       ftsBatchSize: ftsBatchSize < 1 ? defaultFtsBatchSize : ftsBatchSize,
     );
@@ -306,7 +310,7 @@ class ProjectConfig {
     buffer.writeln('snapshot_concurrency: $snapshotConcurrency');
     buffer.writeln('snapshot_write_batch: $snapshotWriteBatch');
     buffer.writeln('snapshot_incremental: $snapshotIncremental');
-    buffer.writeln('record_duplicates: $recordDuplicates');
+    buffer.writeln('daemon_initial_snapshot: $daemonInitialSnapshot');
     buffer.writeln('indexing_mode: ${_indexingModeName(indexingMode)}');
     buffer.writeln('fts_batch_size: $ftsBatchSize');
     buffer.writeln('text_extensions:');
