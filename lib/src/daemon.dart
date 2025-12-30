@@ -193,6 +193,7 @@ class Daemon {
   final Map<String, int> _pendingDeadlineMs = {};
   Timer? _debounceTimer;
   final Queue<_WorkItem> _queue = Queue<_WorkItem>();
+  static const int _maxQueueSize = 10000;
   StreamController<void>? _workController;
   final List<Future<void>> _workerFutures = [];
   int _workersToStop = 0;
@@ -303,6 +304,13 @@ class Daemon {
   }
 
   void _enqueue(String path, FsEventType type) {
+    // Implement backpressure: if queue is full, log warning and drop oldest event
+    if (_queue.length >= _maxQueueSize) {
+      final dropped = _queue.removeFirst();
+      _io?.warning(
+        'Event queue full ($_maxQueueSize items), dropped oldest: ${dropped.path}',
+      );
+    }
     _queue.add(_WorkItem(path, type));
     _signalWork();
   }

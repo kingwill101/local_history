@@ -610,5 +610,40 @@ void main() {
 
     await db.close();
   });
+
+  test('daemon implements queue backpressure control', () async {
+    final dir = await createProject();
+    final config = ProjectConfig.defaults(rootPath: dir.path);
+    final dbPath = p.join(dir.path, '.lh', 'history.db');
+    final db = await HistoryDb.open(dbPath, createIfMissing: true);
+    final daemon = Daemon(
+      config: config,
+      db: db,
+      debounceWindow: Duration.zero,
+    );
+
+    final controller = StreamController<FsEvent>();
+    final runFuture = daemon.run(
+      events: controller.stream,
+      maxEvents: 150,
+    );
+
+    final file = File(p.join(dir.path, 'burst', 'file.txt'));
+    await file.parent.create(recursive: true);
+    await file.writeAsString('content');
+
+    for (var i = 0; i < 150; i++) {
+      controller.add(
+        FsEvent(type: FsEventType.modify, relativePath: 'burst/file.txt'),
+      );
+    }
+
+    await runFuture;
+
+    final history = await db.listHistory('burst/file.txt');
+    expect(history.isNotEmpty, true);
+
+    await db.close();
+  });
 }
 
