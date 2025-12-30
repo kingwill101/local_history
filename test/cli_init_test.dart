@@ -1,5 +1,6 @@
 /// CLI tests for `lh init`.
 library;
+
 import 'dart:io';
 
 import 'package:path/path.dart' as p;

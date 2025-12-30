@@ -1,5 +1,6 @@
 /// CLI command that shows a revision payload.
 library;
+
 import 'dart:io';
 import '../history_db.dart';
 import 'base_command.dart';

@@ -1,5 +1,6 @@
 /// ORM model for the `snapshot_revisions` join table.
 library;
+
 import 'package:ormed/ormed.dart';
 
 part 'snapshot_revision_record.orm.dart';

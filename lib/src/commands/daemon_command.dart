@@ -1,5 +1,6 @@
 /// CLI command that runs the Local History daemon.
 library;
+
 import 'dart:async';
 import 'dart:io';
 
@@ -45,7 +46,7 @@ class DaemonCommand extends BaseCommand {
         ? null
         : parseInt(maxEventsRaw, 'max-events');
     final debounceMs = debounceRaw == null
-        ? null
+        ? config.debounceMs
         : parseInt(debounceRaw, 'debounce-ms');
     final injectedEvents = eventsOverride;
     RandomAccessFile? lockHandle;
@@ -70,9 +71,7 @@ class DaemonCommand extends BaseCommand {
         config: config,
         db: db,
         io: io,
-        debounceWindow: debounceMs == null
-            ? null
-            : Duration(milliseconds: debounceMs),
+        debounceWindow: Duration(milliseconds: debounceMs),
         configFile: injectedEvents == null ? paths.configFile : null,
         lockFile: paths.lockFile,
         lockHandle: lockHandle,

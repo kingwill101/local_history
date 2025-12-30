@@ -1,5 +1,6 @@
 /// Daemon process that watches the filesystem and records revisions.
 library;
+
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
@@ -233,6 +234,10 @@ class Daemon {
   }
 
   void _schedule(String path, FsEventType type) {
+    if (_debounceWindow.inMilliseconds == 0) {
+      _enqueue(path, type);
+      return;
+    }
     _pending[path] = type;
     _pendingDeadlineMs[path] =
         DateTime.now().millisecondsSinceEpoch + _debounceWindow.inMilliseconds;

@@ -1,5 +1,6 @@
 /// CLI command that diffs two revisions.
 library;
+
 import 'package:artisanal/artisanal.dart';
 
 import '../diff.dart';

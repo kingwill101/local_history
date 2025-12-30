@@ -1,5 +1,6 @@
 /// CLI command that verifies revision checksums.
 library;
+
 import 'dart:convert';
 import 'dart:io';
 import '../history_db.dart';

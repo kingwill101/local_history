@@ -1,5 +1,6 @@
 /// Tests for the Local History daemon.
 library;
+
 import 'dart:async';
 import 'dart:io';
 
@@ -55,6 +56,52 @@ void main() {
     await db.close();
   });
 
+  test('daemon records each event when debounce is disabled', () async {
+    final dir = await createProject();
+    final config = ProjectConfig.defaults(rootPath: dir.path);
+    final dbPath = p.join(dir.path, '.lh', 'history.db');
+    final db = await HistoryDb.open(dbPath, createIfMissing: true);
+    final daemon = Daemon(
+      config: config,
+      db: db,
+      debounceWindow: Duration.zero,
+    );
+
+    final controller = StreamController<FsEvent>();
+    final runFuture = daemon.run(events: controller.stream);
+
+    final file = File(p.join(dir.path, 'lib', 'main.dart'));
+    await file.parent.create(recursive: true);
+
+    await file.writeAsString('one');
+    controller.add(
+      FsEvent(type: FsEventType.create, relativePath: 'lib/main.dart'),
+    );
+    await Future.delayed(const Duration(milliseconds: 20));
+
+    await file.writeAsString('two');
+    controller.add(
+      FsEvent(type: FsEventType.modify, relativePath: 'lib/main.dart'),
+    );
+    await Future.delayed(const Duration(milliseconds: 20));
+
+    await file.writeAsString('three');
+    controller.add(
+      FsEvent(type: FsEventType.modify, relativePath: 'lib/main.dart'),
+    );
+
+    await Future.delayed(const Duration(milliseconds: 40));
+    await controller.close();
+    await runFuture;
+
+    final history = await db.listHistory('lib/main.dart');
+    expect(history.length, 3);
+    final revision = await db.getRevision(history.first.revId);
+    expect(revision?.contentText, 'three');
+
+    await db.close();
+  });
+
   test('daemon records delete markers', () async {
     final dir = await createProject();
     final config = ProjectConfig.defaults(rootPath: dir.path);
@@ -103,6 +150,7 @@ void main() {
         maxFileSizeMb: 5,
       ),
       textExtensions: const ['.dart', '.js', '.ts', '.json', '.yaml', '.md'],
+      debounceMs: ProjectConfig.defaultDebounceMs,
       snapshotConcurrency: 2,
       snapshotWriteBatch: 8,
       snapshotIncremental: true,
@@ -142,6 +190,7 @@ void main() {
       ),
       limits: initial.limits,
       textExtensions: [...initial.textExtensions, '.txt'],
+      debounceMs: initial.debounceMs,
       snapshotConcurrency: 3,
       snapshotWriteBatch: 8,
       snapshotIncremental: initial.snapshotIncremental,

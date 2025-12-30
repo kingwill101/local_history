@@ -158,6 +158,7 @@ void main() {
       watch: config.watch,
       limits: config.limits,
       textExtensions: config.textExtensions,
+      debounceMs: config.debounceMs,
       snapshotConcurrency: 1,
       snapshotWriteBatch: 4,
       snapshotIncremental: config.snapshotIncremental,

@@ -1,5 +1,6 @@
 /// Tests for snapshotter behavior.
 library;
+
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -57,6 +58,7 @@ void main() {
         maxFileSizeMb: 0,
       ),
       textExtensions: const ['.dart'],
+      debounceMs: ProjectConfig.defaultDebounceMs,
       snapshotConcurrency: 1,
       snapshotWriteBatch: 8,
       snapshotIncremental: true,
@@ -95,6 +97,7 @@ void main() {
         maxFileSizeMb: 1,
       ),
       textExtensions: const ['.txt'],
+      debounceMs: ProjectConfig.defaultDebounceMs,
       snapshotConcurrency: 1,
       snapshotWriteBatch: 8,
       snapshotIncremental: true,
@@ -134,6 +137,7 @@ void main() {
         maxFileSizeMb: 5,
       ),
       textExtensions: const ['.txt'],
+      debounceMs: ProjectConfig.defaultDebounceMs,
       snapshotConcurrency: 1,
       snapshotWriteBatch: 8,
       snapshotIncremental: true,
