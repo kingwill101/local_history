@@ -68,6 +68,7 @@ class ProjectConfig {
     required this.watch,
     required this.limits,
     required this.textExtensions,
+    required this.debounceMs,
     required this.snapshotConcurrency,
     required this.snapshotWriteBatch,
     required this.snapshotIncremental,
@@ -95,6 +96,9 @@ class ProjectConfig {
 
   /// Default parallelism used by snapshots.
   final int snapshotConcurrency;
+
+  /// Debounce window in milliseconds for file events.
+  final int debounceMs;
 
   /// Default write batch size used by snapshots.
   final int snapshotWriteBatch;
@@ -153,6 +157,9 @@ class ProjectConfig {
   /// Default snapshot concurrency.
   static final int defaultSnapshotConcurrency = _defaultSnapshotConcurrency();
 
+  /// Default debounce window in milliseconds.
+  static const int defaultDebounceMs = 200;
+
   /// Default snapshot write batch size.
   static const int defaultSnapshotWriteBatch = 64;
 
@@ -186,6 +193,7 @@ class ProjectConfig {
       maxFileSizeMb: 5,
     ),
     textExtensions: defaultTextExtensions,
+    debounceMs: defaultDebounceMs,
     snapshotConcurrency: defaultSnapshotConcurrency,
     snapshotWriteBatch: defaultSnapshotWriteBatch,
     snapshotIncremental: defaultSnapshotIncremental,
@@ -249,6 +257,10 @@ class ProjectConfig {
       map['snapshot_concurrency'],
       fallback: defaultSnapshotConcurrency,
     );
+    final debounceMs = _readInt(
+      map['debounce_ms'],
+      fallback: defaultDebounceMs,
+    );
     final snapshotWriteBatch = _readInt(
       map['snapshot_write_batch'],
       fallback: defaultSnapshotWriteBatch,
@@ -276,6 +288,7 @@ class ProjectConfig {
       watch: watch,
       limits: limits,
       textExtensions: textExtensions,
+      debounceMs: debounceMs < 0 ? defaultDebounceMs : debounceMs,
       snapshotConcurrency: snapshotConcurrency < 1
           ? defaultSnapshotConcurrency
           : snapshotConcurrency,
@@ -307,6 +320,7 @@ class ProjectConfig {
     buffer.writeln('  max_revisions_per_file: ${limits.maxRevisionsPerFile}');
     buffer.writeln('  max_days: ${limits.maxDays}');
     buffer.writeln('  max_file_size_mb: ${limits.maxFileSizeMb}');
+    buffer.writeln('debounce_ms: $debounceMs');
     buffer.writeln('snapshot_concurrency: $snapshotConcurrency');
     buffer.writeln('snapshot_write_batch: $snapshotWriteBatch');
     buffer.writeln('snapshot_incremental: $snapshotIncremental');

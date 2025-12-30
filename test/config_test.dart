@@ -26,6 +26,7 @@ void main() {
     expect(loaded.watch.exclude, config.watch.exclude);
     expect(loaded.limits.maxDays, config.limits.maxDays);
     expect(loaded.textExtensions, config.textExtensions);
+    expect(loaded.debounceMs, config.debounceMs);
     expect(loaded.snapshotConcurrency, config.snapshotConcurrency);
     expect(loaded.snapshotWriteBatch, config.snapshotWriteBatch);
     expect(loaded.snapshotIncremental, config.snapshotIncremental);
@@ -49,6 +50,7 @@ void main() {
         maxFileSizeMb: 5,
       ),
       textExtensions: const ['dart', '.MD'],
+      debounceMs: 250,
       snapshotConcurrency: 2,
       snapshotWriteBatch: 16,
       snapshotIncremental: false,
@@ -69,5 +71,6 @@ void main() {
     expect(config.daemonInitialSnapshot, true);
     expect(config.indexingMode, IndexingMode.deferred);
     expect(config.ftsBatchSize, 120);
+    expect(config.debounceMs, 250);
   });
 }

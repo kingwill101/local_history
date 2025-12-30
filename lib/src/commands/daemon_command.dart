@@ -50,7 +50,7 @@ class DaemonCommand extends BaseCommand {
         ? null
         : parseInt(maxEventsRaw, 'max-events');
     final debounceMs = debounceRaw == null
-        ? null
+        ? config.debounceMs
         : parseInt(debounceRaw, 'debounce-ms');
     final initialSnapshotOverride = argResults!.wasParsed('initial-snapshot')
         ? argResults!['initial-snapshot'] as bool
@@ -78,9 +78,7 @@ class DaemonCommand extends BaseCommand {
         config: config,
         db: db,
         io: io,
-        debounceWindow: debounceMs == null
-            ? null
-            : Duration(milliseconds: debounceMs),
+        debounceWindow: Duration(milliseconds: debounceMs),
         configFile: injectedEvents == null ? paths.configFile : null,
         lockFile: paths.lockFile,
         lockHandle: lockHandle,
