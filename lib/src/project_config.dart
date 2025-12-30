@@ -72,7 +72,7 @@ class ProjectConfig {
     required this.snapshotConcurrency,
     required this.snapshotWriteBatch,
     required this.snapshotIncremental,
-    required this.reconcileIntervalSeconds,
+    required this.daemonWorkerConcurrency,
     required this.indexingMode,
     required this.ftsBatchSize,
   }) : _includeGlobs = _buildGlobs(watch.include),
@@ -106,8 +106,8 @@ class ProjectConfig {
   /// Whether snapshots should skip unchanged files by default.
   final bool snapshotIncremental;
 
-  /// Seconds between reconciliation passes (0 disables).
-  final int reconcileIntervalSeconds;
+  /// Default worker concurrency used by the daemon queue.
+  final int daemonWorkerConcurrency;
 
   /// Full-text indexing mode for revisions.
   final IndexingMode indexingMode;
@@ -166,8 +166,9 @@ class ProjectConfig {
   /// Default incremental snapshot setting.
   static const bool defaultSnapshotIncremental = true;
 
-  /// Default reconciliation interval in seconds (0 disables).
-  static const int defaultReconcileIntervalSeconds = 0;
+  /// Default daemon worker concurrency.
+  static final int defaultDaemonWorkerConcurrency =
+      _defaultDaemonWorkerConcurrency();
 
   /// Default indexing mode.
   static const IndexingMode defaultIndexingMode = IndexingMode.immediate;
@@ -197,7 +198,7 @@ class ProjectConfig {
     snapshotConcurrency: defaultSnapshotConcurrency,
     snapshotWriteBatch: defaultSnapshotWriteBatch,
     snapshotIncremental: defaultSnapshotIncremental,
-    reconcileIntervalSeconds: defaultReconcileIntervalSeconds,
+    daemonWorkerConcurrency: defaultDaemonWorkerConcurrency,
     indexingMode: defaultIndexingMode,
     ftsBatchSize: defaultFtsBatchSize,
   );
@@ -269,9 +270,9 @@ class ProjectConfig {
       map['snapshot_incremental'],
       fallback: defaultSnapshotIncremental,
     );
-    final reconcileIntervalSeconds = _readInt(
-      map['reconcile_interval_seconds'],
-      fallback: defaultReconcileIntervalSeconds,
+    final daemonWorkerConcurrency = _readInt(
+      map['daemon_worker_concurrency'],
+      fallback: defaultDaemonWorkerConcurrency,
     );
     final indexingMode = _readIndexingMode(
       map['indexing_mode'],
@@ -296,9 +297,9 @@ class ProjectConfig {
           ? defaultSnapshotWriteBatch
           : snapshotWriteBatch,
       snapshotIncremental: snapshotIncremental,
-      reconcileIntervalSeconds: reconcileIntervalSeconds < 0
-          ? defaultReconcileIntervalSeconds
-          : reconcileIntervalSeconds,
+      daemonWorkerConcurrency: daemonWorkerConcurrency < 1
+          ? defaultDaemonWorkerConcurrency
+          : daemonWorkerConcurrency,
       indexingMode: indexingMode,
       ftsBatchSize: ftsBatchSize < 1 ? defaultFtsBatchSize : ftsBatchSize,
     );
@@ -326,7 +327,7 @@ class ProjectConfig {
     buffer.writeln('snapshot_concurrency: $snapshotConcurrency');
     buffer.writeln('snapshot_write_batch: $snapshotWriteBatch');
     buffer.writeln('snapshot_incremental: $snapshotIncremental');
-    buffer.writeln('reconcile_interval_seconds: $reconcileIntervalSeconds');
+    buffer.writeln('daemon_worker_concurrency: $daemonWorkerConcurrency');
     buffer.writeln('indexing_mode: ${_indexingModeName(indexingMode)}');
     buffer.writeln('fts_batch_size: $ftsBatchSize');
     buffer.writeln('text_extensions:');
@@ -379,6 +380,13 @@ class ProjectConfig {
   }
 
   static int _defaultSnapshotConcurrency() {
+    final cores = Platform.numberOfProcessors;
+    final safe = cores <= 0 ? 4 : cores;
+    final capped = safe < 4 ? safe : 4;
+    return capped < 1 ? 1 : capped;
+  }
+
+  static int _defaultDaemonWorkerConcurrency() {
     final cores = Platform.numberOfProcessors;
     final safe = cores <= 0 ? 4 : cores;
     final capped = safe < 4 ? safe : 4;
