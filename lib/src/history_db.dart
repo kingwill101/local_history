@@ -148,6 +148,7 @@ class HistoryDb {
     int? mtimeMs,
     int? sizeBytes,
     bool deferIndexing = false,
+    bool recordDuplicates = false,
   }) async {
     final checksum = sha256.convert(content).bytes;
     return _dataSource.transaction(() async {
@@ -158,6 +159,7 @@ class HistoryDb {
       final existingChecksum = fileRecord?.lastChecksum;
       final isDelete = changeType == 'delete';
       final isDuplicate =
+          !recordDuplicates &&
           !isDelete &&
           existingChecksum != null &&
           _listEquals(existingChecksum, checksum);
