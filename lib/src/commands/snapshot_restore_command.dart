@@ -1,8 +1,10 @@
 /// CLI command that restores a snapshot to disk.
 library;
+
 import 'dart:io';
 import '../history_db.dart';
 import '../path_utils.dart';
+import '../project_config.dart';
 import 'base_command.dart';
 
 /// Restores all files from a snapshot by id or label.
@@ -11,6 +13,11 @@ class SnapshotRestoreCommand extends BaseCommand {
   SnapshotRestoreCommand() {
     argParser
       ..addFlag('force', help: 'Skip confirmation prompt')
+      ..addFlag(
+        'delete-extra',
+        help: 'Delete files not present in the snapshot.',
+        negatable: false,
+      )
       ..addOption('id', help: 'Snapshot id to restore')
       ..addOption('label', help: 'Snapshot label to restore');
   }
@@ -80,6 +87,18 @@ class SnapshotRestoreCommand extends BaseCommand {
     }
 
     final force = argResults!['force'] as bool;
+    final deleteExtra = argResults!['delete-extra'] as bool;
+    final snapshotPaths = revisions
+        .map((revision) => revision.path)
+        .where((path) => path.isNotEmpty)
+        .toSet();
+    var extraFiles = <String>[];
+    var deleteConfirmed = deleteExtra;
+    if (deleteExtra) {
+      final config = await loadConfig();
+      extraFiles = await _listIncludedFiles(config);
+      extraFiles.removeWhere(snapshotPaths.contains);
+    }
     if (!force) {
       final confirmed = io.confirm(
         'Restore snapshot ${snapshot.snapshotId} '
@@ -91,9 +110,17 @@ class SnapshotRestoreCommand extends BaseCommand {
         return;
       }
     }
+    if (deleteExtra && extraFiles.isNotEmpty && !force) {
+      deleteConfirmed = io.confirm(
+        'Delete ${extraFiles.length} files not present in snapshot '
+        '${snapshot.snapshotId}?',
+        defaultValue: false,
+      );
+    }
 
     var restored = 0;
     var unchanged = 0;
+    var deleted = 0;
 
     for (final revision in revisions) {
       if (revision.path.isEmpty) {
@@ -116,9 +143,27 @@ class SnapshotRestoreCommand extends BaseCommand {
       restored += 1;
     }
 
+    if (deleteConfirmed && extraFiles.isNotEmpty) {
+      for (final path in extraFiles) {
+        final absolutePath = resolveAbsolutePath(
+          rootPath: paths.root.path,
+          relativePath: path,
+        );
+        final file = File(absolutePath);
+        if (await file.exists()) {
+          await file.delete();
+          deleted += 1;
+        }
+      }
+    } else if (deleteExtra && extraFiles.isNotEmpty) {
+      io.note('Delete cancelled');
+    }
+
     io.success(
       'Snapshot ${snapshot.snapshotId} restored '
-      '($restored files updated, $unchanged unchanged).',
+      '${deleteExtra ? '($restored files updated, $unchanged unchanged, '
+                '$deleted deleted).' : '($restored files updated, '
+                '$unchanged unchanged).'}',
     );
   }
 }
@@ -134,4 +179,30 @@ Future<bool> _contentMatches(File file, List<int> expected) async {
   } catch (_) {
     return false;
   }
+}
+Future<List<String>> _listIncludedFiles(ProjectConfig config) async {
+  final included = <String>[];
+  await for (final entity in Directory(
+    config.rootPath,
+  ).list(recursive: true, followLinks: false)) {
+    if (entity is! File) {
+      continue;
+    }
+    final relativePath = normalizeRelativePath(
+      rootPath: config.rootPath,
+      inputPath: entity.path,
+    );
+    final stat = await entity.stat();
+    if (stat.type != FileSystemEntityType.file) {
+      continue;
+    }
+    if (stat.size > config.limits.maxFileSizeBytes) {
+      continue;
+    }
+    if (!config.isPathIncluded(relativePath)) {
+      continue;
+    }
+    included.add(relativePath);
+  }
+  return included;
 }
