@@ -107,7 +107,7 @@ void main() {
       snapshotConcurrency: 2,
       snapshotWriteBatch: 8,
       snapshotIncremental: true,
-      recordDuplicates: false,
+      daemonInitialSnapshot: false,
       indexingMode: IndexingMode.immediate,
       ftsBatchSize: 500,
     );
@@ -146,7 +146,7 @@ void main() {
       snapshotConcurrency: 3,
       snapshotWriteBatch: 8,
       snapshotIncremental: initial.snapshotIncremental,
-      recordDuplicates: initial.recordDuplicates,
+      daemonInitialSnapshot: initial.daemonInitialSnapshot,
       indexingMode: initial.indexingMode,
       ftsBatchSize: initial.ftsBatchSize,
     );
@@ -204,5 +204,47 @@ void main() {
   test('daemon process liveness detects current pid', () {
     expect(Daemon.isProcessAlive(pid), true);
     expect(Daemon.isProcessAlive(-1), false);
+  });
+
+  test('daemon snapshots existing files on startup when enabled', () async {
+    final dir = await createProject();
+    final config = ProjectConfig.defaults(rootPath: dir.path);
+    final enabled = ProjectConfig(
+      rootPath: config.rootPath,
+      version: config.version,
+      watch: config.watch,
+      limits: config.limits,
+      textExtensions: config.textExtensions,
+      snapshotConcurrency: config.snapshotConcurrency,
+      snapshotWriteBatch: config.snapshotWriteBatch,
+      snapshotIncremental: config.snapshotIncremental,
+      daemonInitialSnapshot: true,
+      indexingMode: config.indexingMode,
+      ftsBatchSize: config.ftsBatchSize,
+    );
+    final file = File(p.join(dir.path, 'lib', 'main.dart'));
+    await file.parent.create(recursive: true);
+    await file.writeAsString('baseline');
+
+    final dbPath = p.join(dir.path, '.lh', 'history.db');
+    final db = await HistoryDb.open(dbPath, createIfMissing: true);
+    final daemon = Daemon(
+      config: enabled,
+      db: db,
+      debounceWindow: const Duration(milliseconds: 10),
+    );
+
+    final controller = StreamController<FsEvent>();
+    final runFuture = daemon.run(events: controller.stream);
+    await Future.delayed(const Duration(milliseconds: 30));
+    await controller.close();
+    await runFuture;
+
+    final history = await db.listHistory('lib/main.dart');
+    expect(history.length, 1);
+    final revision = await db.getRevision(history.first.revId);
+    expect(revision?.contentText, 'baseline');
+
+    await db.close();
   });
 }

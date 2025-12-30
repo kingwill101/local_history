@@ -29,7 +29,7 @@ void main() {
     expect(loaded.snapshotConcurrency, config.snapshotConcurrency);
     expect(loaded.snapshotWriteBatch, config.snapshotWriteBatch);
     expect(loaded.snapshotIncremental, config.snapshotIncremental);
-    expect(loaded.recordDuplicates, config.recordDuplicates);
+    expect(loaded.daemonInitialSnapshot, config.daemonInitialSnapshot);
     expect(loaded.indexingMode, config.indexingMode);
     expect(loaded.ftsBatchSize, config.ftsBatchSize);
   });
@@ -52,7 +52,7 @@ void main() {
       snapshotConcurrency: 2,
       snapshotWriteBatch: 16,
       snapshotIncremental: false,
-      recordDuplicates: true,
+      daemonInitialSnapshot: true,
       indexingMode: IndexingMode.deferred,
       ftsBatchSize: 120,
     );
@@ -66,7 +66,7 @@ void main() {
     expect(config.isTextPath('README.md'), true);
     expect(config.isTextPath('image.png'), false);
     expect(config.snapshotIncremental, false);
-    expect(config.recordDuplicates, true);
+    expect(config.daemonInitialSnapshot, true);
     expect(config.indexingMode, IndexingMode.deferred);
     expect(config.ftsBatchSize, 120);
   });
