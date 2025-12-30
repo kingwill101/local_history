@@ -59,6 +59,9 @@ lh daemon
 The daemon will watch the project root, record file changes, and write
 revisions to `.lh/history.db`.
 
+To enable periodic reconciliation (metadata checks for missed events), set
+`reconcile_interval_seconds` in `.lh/config.yaml` to a positive value.
+
 ## Concepts
 
 ### What gets recorded
@@ -171,6 +174,7 @@ limits:
 snapshot_concurrency: 4
 snapshot_write_batch: 64
 snapshot_incremental: true
+reconcile_interval_seconds: 0
 indexing_mode: immediate
 fts_batch_size: 500
 text_extensions:
@@ -192,6 +196,8 @@ text_extensions:
 - `snapshot_write_batch` controls how many revisions are committed per
   transaction during `lh snapshot`. CLI `--write-batch` overrides this value.
 - `snapshot_incremental` skips unchanged files by comparing mtime and size.
+- `reconcile_interval_seconds` enables periodic reconciliation while the
+  daemon runs. Set to `0` to disable.
 - `indexing_mode` controls whether full-text search indexing happens
   immediately (`immediate`) or waits for `lh reindex` (`deferred`).
 - `fts_batch_size` controls how many revisions are indexed per batch during

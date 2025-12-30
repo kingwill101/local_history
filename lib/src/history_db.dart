@@ -123,6 +123,12 @@ class HistoryDb {
     };
   }
 
+  /// Returns all file paths that have been tracked in the history database.
+  Future<List<String>> getAllTrackedFilePaths() async {
+    final records = await _dataSource.query<FileRecord>().get();
+    return [for (final record in records) record.path];
+  }
+
   Future<int> _ensureFileId(String path) async {
     final repo = _dataSource.repo<FileRecord>();
     await repo.upsert(FileRecord(path: path), uniqueBy: ['path']);

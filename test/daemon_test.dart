@@ -154,7 +154,7 @@ void main() {
       snapshotConcurrency: 2,
       snapshotWriteBatch: 8,
       snapshotIncremental: true,
-      daemonInitialSnapshot: false,
+      reconcileIntervalSeconds: 0,
       indexingMode: IndexingMode.immediate,
       ftsBatchSize: 500,
     );
@@ -194,7 +194,7 @@ void main() {
       snapshotConcurrency: 3,
       snapshotWriteBatch: 8,
       snapshotIncremental: initial.snapshotIncremental,
-      daemonInitialSnapshot: initial.daemonInitialSnapshot,
+      reconcileIntervalSeconds: initial.reconcileIntervalSeconds,
       indexingMode: initial.indexingMode,
       ftsBatchSize: initial.ftsBatchSize,
     );
