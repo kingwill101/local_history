@@ -20,6 +20,7 @@ import 'package:local_history/src/cli.dart'
         SnapshotRestoreCommand,
         SearchCommand,
         ShowCommand,
+        StatusCommand,
         VerifyCommand;
 import 'package:path/path.dart' as p;
 
@@ -89,6 +90,7 @@ Future<CliResult> runCliHarness(
         ..addCommand(SearchCommand())
         ..addCommand(ReindexCommand())
         ..addCommand(VerifyCommand())
+        ..addCommand(StatusCommand())
         ..addCommand(LabelCommand())
         ..addCommand(GcCommand());
 

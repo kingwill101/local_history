@@ -223,6 +223,16 @@ void main() {
     expect(result.stdout + result.stderr, contains('--full'));
   });
 
+  test('lh status reports daemon not running', () async {
+    final dir = await createProject();
+    await runCliHarness(['init'], cwd: dir);
+
+    final result = await runCliHarness(['status'], cwd: dir);
+
+    expect(result.exitCode, 0);
+    expect(result.stdout, contains('Daemon: not running'));
+  });
+
   test(
     'lh snapshot restore restores snapshot files and keeps new files',
     () async {

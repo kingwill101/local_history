@@ -76,6 +76,7 @@ class DaemonCommand extends BaseCommand {
         configFile: injectedEvents == null ? paths.configFile : null,
         lockFile: paths.lockFile,
         lockHandle: lockHandle,
+        heartbeatFile: paths.daemonStatusFile,
       );
       await daemon.run(events: injectedEvents, maxEvents: maxEvents);
     } on StateError catch (error) {

@@ -21,6 +21,7 @@ export 'commands/index.dart'
         SnapshotRestoreCommand,
         SearchCommand,
         ShowCommand,
+        StatusCommand,
         VerifyCommand;
 
 /// Runs the `lh` CLI with [args] and returns the resulting exit code.
@@ -45,6 +46,7 @@ Future<int> runCli(List<String> args, {Directory? workingDirectory}) async {
     ..addCommand(SearchCommand())
     ..addCommand(ReindexCommand())
     ..addCommand(VerifyCommand())
+    ..addCommand(StatusCommand())
     ..addCommand(LabelCommand())
     ..addCommand(GcCommand());
 

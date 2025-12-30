@@ -22,4 +22,7 @@ class ProjectPaths {
 
   /// The daemon lock file.
   File get lockFile => File(p.join(historyDir.path, 'lock'));
+
+  /// The daemon heartbeat status file.
+  File get daemonStatusFile => File(p.join(historyDir.path, 'daemon.json'));
 }
