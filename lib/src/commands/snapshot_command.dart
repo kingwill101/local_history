@@ -131,6 +131,7 @@ class SnapshotCommand extends BaseCommand {
           writes: current,
           fileIdCache: fileIdCache,
           deferIndexing: deferIndexing,
+          recordDuplicates: config.recordDuplicates,
         );
         stored += revIds.length;
       }
@@ -163,6 +164,7 @@ class SnapshotCommand extends BaseCommand {
         writes: writeBuffer,
         fileIdCache: fileIdCache,
         deferIndexing: deferIndexing,
+        recordDuplicates: config.recordDuplicates,
       );
       stored += revIds.length;
       writeBuffer.clear();
