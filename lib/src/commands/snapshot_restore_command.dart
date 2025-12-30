@@ -193,6 +193,13 @@ Future<List<String>> _listIncludedFiles(ProjectConfig config) async {
       rootPath: config.rootPath,
       inputPath: entity.path,
     );
+    final stat = await entity.stat();
+    if (stat.type != FileSystemEntityType.file) {
+      continue;
+    }
+    if (stat.size > config.limits.maxFileSizeBytes) {
+      continue;
+    }
     if (!config.isPathIncluded(relativePath)) {
       continue;
     }
