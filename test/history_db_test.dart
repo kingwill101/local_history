@@ -236,6 +236,40 @@ void main() {
     await db.close();
   });
 
+  test('history database records duplicate revisions when enabled', () async {
+    final tempDir = await Directory.systemTemp.createTemp('lh_db_dup_record');
+    addTearDown(() => tempDir.delete(recursive: true));
+
+    final dbPath = p.join(tempDir.path, 'history.db');
+    final db = await HistoryDb.open(dbPath, createIfMissing: true);
+
+    final content = Uint8List.fromList('repeat'.codeUnits);
+    final first = await db.insertRevision(
+      path: 'lib/repeat.txt',
+      timestampMs: DateTime.now().millisecondsSinceEpoch,
+      changeType: 'create',
+      content: content,
+      contentText: 'repeat',
+      recordDuplicates: true,
+    );
+    final second = await db.insertRevision(
+      path: 'lib/repeat.txt',
+      timestampMs: DateTime.now().millisecondsSinceEpoch + 1,
+      changeType: 'modify',
+      content: content,
+      contentText: 'repeat',
+      recordDuplicates: true,
+    );
+
+    expect(first, greaterThan(0));
+    expect(second, greaterThan(0));
+
+    final history = await db.listHistory('lib/repeat.txt');
+    expect(history.length, 2);
+
+    await db.close();
+  });
+
   test('history database verify handles missing and mismatch', () async {
     final tempDir = await Directory.systemTemp.createTemp('lh_db_verify');
     addTearDown(() => tempDir.delete(recursive: true));

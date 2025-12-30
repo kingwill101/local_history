@@ -60,6 +60,7 @@ void main() {
       snapshotConcurrency: 1,
       snapshotWriteBatch: 8,
       snapshotIncremental: true,
+      recordDuplicates: false,
       indexingMode: IndexingMode.immediate,
       ftsBatchSize: 500,
     );
@@ -97,6 +98,7 @@ void main() {
       snapshotConcurrency: 1,
       snapshotWriteBatch: 8,
       snapshotIncremental: true,
+      recordDuplicates: false,
       indexingMode: IndexingMode.immediate,
       ftsBatchSize: 500,
     );
@@ -135,6 +137,7 @@ void main() {
       snapshotConcurrency: 1,
       snapshotWriteBatch: 8,
       snapshotIncremental: true,
+      recordDuplicates: false,
       indexingMode: IndexingMode.immediate,
       ftsBatchSize: 500,
     );
