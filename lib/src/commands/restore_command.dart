@@ -1,6 +1,7 @@
 /// CLI command that restores a revision to disk.
 library;
 
+import 'dart:convert';
 import 'dart:io';
 import '../daemon.dart';
 import '../history_db.dart';
@@ -81,18 +82,38 @@ class RestoreCommand extends BaseCommand {
     try {
       final fileId = await restoreDb.getFileId(revision.path);
       final changeType = fileId == null ? 'create' : 'modify';
+      // Recompute contentText using current config rules instead of reusing
+      // the historical value, so indexing respects current text extensions
+      final contentText = _maybeDecodeText(revision.path, revision.content, config);
       await restoreDb.insertRevision(
         path: revision.path,
         timestampMs: DateTime.now().millisecondsSinceEpoch,
         changeType: changeType,
         content: revision.content,
-        contentText: revision.contentText,
+        contentText: contentText,
         mtimeMs: stat.modified.millisecondsSinceEpoch,
         sizeBytes: stat.size,
         deferIndexing: config.indexingMode == IndexingMode.deferred,
       );
     } finally {
       await restoreDb.close();
+    }
+  }
+
+  /// Decodes bytes to text if the path should be indexed as text, using current
+  /// config rules instead of historical rules.
+  String? _maybeDecodeText(
+    String relativePath,
+    List<int> bytes,
+    ProjectConfig config,
+  ) {
+    if (!config.isTextPath(relativePath)) {
+      return null;
+    }
+    try {
+      return utf8.decode(bytes);
+    } catch (_) {
+      return utf8.decode(bytes, allowMalformed: true);
     }
   }
 
