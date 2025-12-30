@@ -1,5 +1,6 @@
 /// Tests for project configuration parsing.
 library;
+
 import 'dart:io';
 
 import 'package:local_history/local_history.dart';

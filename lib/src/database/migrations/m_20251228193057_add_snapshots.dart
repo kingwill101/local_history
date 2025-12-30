@@ -1,5 +1,6 @@
 /// Migration that adds snapshot tables.
 library;
+
 import 'package:ormed/migrations.dart';
 
 /// Adds `snapshots` and `snapshot_revisions` tables.

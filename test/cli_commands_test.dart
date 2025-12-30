@@ -277,6 +277,28 @@ void main() {
     },
   );
 
+  test('lh snapshot restore deletes extra files when enabled', () async {
+    final dir = await createProject();
+    await runCliHarness(['init'], cwd: dir);
+
+    final fileA = File(p.join(dir.path, 'lib', 'a.txt'));
+    await fileA.parent.create(recursive: true);
+    await fileA.writeAsString('alpha');
+
+    await runCliHarness(['snapshot', '--label', 'snap-2'], cwd: dir);
+
+    final extraFile = File(p.join(dir.path, 'lib', 'extra.txt'));
+    await extraFile.writeAsString('extra');
+
+    final restore = await runCliHarness(
+      ['snapshot-restore', '--label', 'snap-2', '--delete-extra'],
+      cwd: dir,
+      inputLines: ['y', 'y'],
+    );
+    expect(restore.exitCode, 0);
+    expect(await extraFile.exists(), false);
+  });
+
   test('lh diff rejects binary revisions', () async {
     final dir = await createProject();
     await runCliHarness(['init'], cwd: dir);

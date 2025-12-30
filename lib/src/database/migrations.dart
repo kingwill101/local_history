@@ -1,5 +1,6 @@
 /// Migration registry and tooling for the Local History database.
 library;
+
 import 'dart:convert';
 
 import 'package:ormed/migrations.dart';

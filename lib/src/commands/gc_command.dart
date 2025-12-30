@@ -1,5 +1,6 @@
 /// CLI command that cleans up old revisions.
 library;
+
 import '../history_db.dart';
 import 'base_command.dart';
 

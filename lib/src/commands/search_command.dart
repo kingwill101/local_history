@@ -1,5 +1,6 @@
 /// CLI command that searches across revision history.
 library;
+
 import '../history_db.dart';
 import 'base_command.dart';
 
