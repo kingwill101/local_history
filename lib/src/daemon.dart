@@ -451,7 +451,7 @@ class Daemon {
     var skipped = 0;
     await for (final entity in Directory(
       config.rootPath,
-    ).list(recursive: true, followLinks: false)) {
+    ).list(recursive: config.watch.recursive, followLinks: false)) {
       if (entity is! File) {
         continue;
       }
