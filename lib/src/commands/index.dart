@@ -1,5 +1,6 @@
 /// Command exports for the Local History CLI.
 library;
+
 export 'base_command.dart';
 export 'daemon_command.dart';
 export 'diff_command.dart';

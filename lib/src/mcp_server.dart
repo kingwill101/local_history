@@ -1,5 +1,6 @@
 /// MCP server for read-only Local History access.
 library;
+
 import 'dart:async';
 import 'dart:io';
 

@@ -1,5 +1,6 @@
 /// Migration that creates the initial history tables.
 library;
+
 import 'package:ormed_sqlite/migrations.dart';
 
 /// Creates the `files` and `revisions` tables.

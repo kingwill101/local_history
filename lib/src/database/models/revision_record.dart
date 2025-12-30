@@ -1,5 +1,6 @@
 /// ORM model for the `revisions` table.
 library;
+
 import 'package:ormed/ormed.dart';
 
 part 'revision_record.orm.dart';
