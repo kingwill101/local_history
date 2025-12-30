@@ -3,7 +3,6 @@ library;
 
 import 'dart:async';
 import 'dart:collection';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
@@ -180,13 +179,10 @@ class Daemon {
   final Duration _configReloadDebounce;
   final Duration _reloadBackoff;
   final File? _lockFile;
-  final File? _heartbeatFile;
   RandomAccessFile? _lockHandle;
   final bool? _initialSnapshotOverride;
   StreamSubscription<WatchEvent>? _configSubscription;
   Timer? _reloadTimer;
-  Timer? _heartbeatTimer;
-  int? _lastProcessedMs;
   bool _reloadPending = false;
   int? _backoffUntilMs;
   bool _lockAcquired = false;
@@ -198,10 +194,10 @@ class Daemon {
   StreamController<void>? _workController;
   final List<Future<void>> _workerFutures = [];
   Completer<void>? _drainCompleter;
-  int _activeWorkers = 0;
-  late Snapshotter _snapshotter;
   Timer? _reconcileTimer;
   bool _reconcileRunning = false;
+  int _activeWorkers = 0;
+  late Snapshotter _snapshotter;
 
   /// Starts watching for filesystem changes and persists revisions.
   ///
@@ -462,7 +458,7 @@ class Daemon {
   }
 
   Future<void> _runReconcile() async {
-    if (_reconcileRunning || _reloadPending || _workerRunning) {
+    if (_reconcileRunning || _reloadPending || _activeWorkers > 0) {
       return;
     }
     if (_pending.isNotEmpty || _pendingDeadlineMs.isNotEmpty) {
@@ -496,40 +492,6 @@ class Daemon {
       return 0;
     }
     return remaining;
-  }
-
-  void _startHeartbeat() {
-    if (_heartbeatFile == null) return;
-    _heartbeatTimer?.cancel();
-    _heartbeatTimer = Timer.periodic(
-      const Duration(seconds: 2),
-      (_) => unawaited(_writeHeartbeat()),
-    );
-    unawaited(_writeHeartbeat());
-  }
-
-  void _stopHeartbeat() {
-    _heartbeatTimer?.cancel();
-    _heartbeatTimer = null;
-    unawaited(_writeHeartbeat());
-  }
-
-  Future<void> _writeHeartbeat() async {
-    final heartbeatFile = _heartbeatFile;
-    if (heartbeatFile == null) return;
-    final payload = <String, Object?>{
-      'updatedAtMs': DateTime.now().millisecondsSinceEpoch,
-      'lastProcessedMs': _lastProcessedMs,
-      'queueDepth': _queue.length + _pending.length,
-      'pendingDepth': _pending.length,
-      'queueCount': _queue.length,
-    };
-    try {
-      await heartbeatFile.parent.create(recursive: true);
-      await heartbeatFile.writeAsString(jsonEncode(payload));
-    } catch (_) {
-      // Best-effort heartbeat; ignore failures.
-    }
   }
 
   Future<void> _acquireLock() async {

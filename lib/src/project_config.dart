@@ -72,7 +72,10 @@ class ProjectConfig {
     required this.snapshotConcurrency,
     required this.snapshotWriteBatch,
     required this.snapshotIncremental,
+    required this.recordDuplicates,
+    required this.reconcileIntervalSeconds,
     required this.daemonWorkerConcurrency,
+    required this.daemonInitialSnapshot,
     required this.indexingMode,
     required this.ftsBatchSize,
   }) : _includeGlobs = _buildGlobs(watch.include),
@@ -106,8 +109,17 @@ class ProjectConfig {
   /// Whether snapshots should skip unchanged files by default.
   final bool snapshotIncremental;
 
+  /// Whether to store duplicate revisions even when content matches.
+  final bool recordDuplicates;
+
+  /// Seconds between reconciliation passes (0 disables).
+  final int reconcileIntervalSeconds;
+
   /// Default worker concurrency used by the daemon queue.
   final int daemonWorkerConcurrency;
+
+  /// Whether daemon startup should capture an initial snapshot.
+  final bool daemonInitialSnapshot;
 
   /// Full-text indexing mode for revisions.
   final IndexingMode indexingMode;
@@ -166,15 +178,21 @@ class ProjectConfig {
   /// Default incremental snapshot setting.
   static const bool defaultSnapshotIncremental = true;
 
+  /// Default duplicate revision recording.
+  static const bool defaultRecordDuplicates = false;
+
+  /// Default reconciliation interval in seconds.
+  static const int defaultReconcileIntervalSeconds = 0;
+
   /// Default daemon worker concurrency.
   static final int defaultDaemonWorkerConcurrency =
       _defaultDaemonWorkerConcurrency();
 
+  /// Default daemon initial snapshot setting.
+  static const bool defaultDaemonInitialSnapshot = false;
+
   /// Default indexing mode.
   static const IndexingMode defaultIndexingMode = IndexingMode.immediate;
-
-  /// Default duplicate revision recording.
-  static const bool defaultRecordDuplicates = false;
 
   /// Default deferred indexing batch size.
   static const int defaultFtsBatchSize = 500;
@@ -198,7 +216,10 @@ class ProjectConfig {
     snapshotConcurrency: defaultSnapshotConcurrency,
     snapshotWriteBatch: defaultSnapshotWriteBatch,
     snapshotIncremental: defaultSnapshotIncremental,
+    recordDuplicates: defaultRecordDuplicates,
+    reconcileIntervalSeconds: defaultReconcileIntervalSeconds,
     daemonWorkerConcurrency: defaultDaemonWorkerConcurrency,
+    daemonInitialSnapshot: defaultDaemonInitialSnapshot,
     indexingMode: defaultIndexingMode,
     ftsBatchSize: defaultFtsBatchSize,
   );
@@ -270,9 +291,21 @@ class ProjectConfig {
       map['snapshot_incremental'],
       fallback: defaultSnapshotIncremental,
     );
+    final recordDuplicates = _readBool(
+      map['record_duplicates'],
+      fallback: defaultRecordDuplicates,
+    );
+    final reconcileIntervalSeconds = _readInt(
+      map['reconcile_interval_seconds'],
+      fallback: defaultReconcileIntervalSeconds,
+    );
     final daemonWorkerConcurrency = _readInt(
       map['daemon_worker_concurrency'],
       fallback: defaultDaemonWorkerConcurrency,
+    );
+    final daemonInitialSnapshot = _readBool(
+      map['daemon_initial_snapshot'],
+      fallback: defaultDaemonInitialSnapshot,
     );
     final indexingMode = _readIndexingMode(
       map['indexing_mode'],
@@ -297,9 +330,14 @@ class ProjectConfig {
           ? defaultSnapshotWriteBatch
           : snapshotWriteBatch,
       snapshotIncremental: snapshotIncremental,
+      recordDuplicates: recordDuplicates,
+      reconcileIntervalSeconds: reconcileIntervalSeconds < 0
+          ? defaultReconcileIntervalSeconds
+          : reconcileIntervalSeconds,
       daemonWorkerConcurrency: daemonWorkerConcurrency < 1
           ? defaultDaemonWorkerConcurrency
           : daemonWorkerConcurrency,
+      daemonInitialSnapshot: daemonInitialSnapshot,
       indexingMode: indexingMode,
       ftsBatchSize: ftsBatchSize < 1 ? defaultFtsBatchSize : ftsBatchSize,
     );

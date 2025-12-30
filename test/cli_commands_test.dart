@@ -164,6 +164,9 @@ void main() {
       snapshotIncremental: config.snapshotIncremental,
       daemonWorkerConcurrency: config.daemonWorkerConcurrency,
       indexingMode: config.indexingMode,
+      recordDuplicates: ProjectConfig.defaultRecordDuplicates,
+      reconcileIntervalSeconds: ProjectConfig.defaultReconcileIntervalSeconds,
+      daemonInitialSnapshot: ProjectConfig.defaultDaemonInitialSnapshot,
       ftsBatchSize: config.ftsBatchSize,
     );
     await updated.save(paths.configFile);

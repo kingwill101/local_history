@@ -142,10 +142,14 @@ void main() {
       watch: baseConfig.watch,
       limits: baseConfig.limits,
       textExtensions: baseConfig.textExtensions,
+      debounceMs: baseConfig.debounceMs,
       snapshotConcurrency: baseConfig.snapshotConcurrency,
       snapshotWriteBatch: baseConfig.snapshotWriteBatch,
       snapshotIncremental: baseConfig.snapshotIncremental,
+      recordDuplicates: ProjectConfig.defaultRecordDuplicates,
+      reconcileIntervalSeconds: ProjectConfig.defaultReconcileIntervalSeconds,
       daemonWorkerConcurrency: 2,
+      daemonInitialSnapshot: ProjectConfig.defaultDaemonInitialSnapshot,
       indexingMode: baseConfig.indexingMode,
       ftsBatchSize: baseConfig.ftsBatchSize,
     );
@@ -207,6 +211,9 @@ void main() {
       snapshotIncremental: true,
       daemonWorkerConcurrency: 2,
       indexingMode: IndexingMode.immediate,
+      recordDuplicates: ProjectConfig.defaultRecordDuplicates,
+      reconcileIntervalSeconds: ProjectConfig.defaultReconcileIntervalSeconds,
+      daemonInitialSnapshot: ProjectConfig.defaultDaemonInitialSnapshot,
       ftsBatchSize: 500,
     );
     await initial.save(configFile);
@@ -247,6 +254,9 @@ void main() {
       snapshotIncremental: initial.snapshotIncremental,
       daemonWorkerConcurrency: initial.daemonWorkerConcurrency,
       indexingMode: initial.indexingMode,
+      recordDuplicates: ProjectConfig.defaultRecordDuplicates,
+      reconcileIntervalSeconds: ProjectConfig.defaultReconcileIntervalSeconds,
+      daemonInitialSnapshot: ProjectConfig.defaultDaemonInitialSnapshot,
       ftsBatchSize: initial.ftsBatchSize,
     );
     await updated.save(configFile);
@@ -314,9 +324,13 @@ void main() {
       watch: config.watch,
       limits: config.limits,
       textExtensions: config.textExtensions,
+      debounceMs: config.debounceMs,
       snapshotConcurrency: config.snapshotConcurrency,
       snapshotWriteBatch: config.snapshotWriteBatch,
       snapshotIncremental: config.snapshotIncremental,
+      recordDuplicates: ProjectConfig.defaultRecordDuplicates,
+      reconcileIntervalSeconds: ProjectConfig.defaultReconcileIntervalSeconds,
+      daemonWorkerConcurrency: config.daemonWorkerConcurrency,
       daemonInitialSnapshot: true,
       indexingMode: config.indexingMode,
       ftsBatchSize: config.ftsBatchSize,

@@ -56,6 +56,9 @@ void main() {
       snapshotIncremental: false,
       daemonWorkerConcurrency: 2,
       indexingMode: IndexingMode.deferred,
+      recordDuplicates: ProjectConfig.defaultRecordDuplicates,
+      reconcileIntervalSeconds: ProjectConfig.defaultReconcileIntervalSeconds,
+      daemonInitialSnapshot: ProjectConfig.defaultDaemonInitialSnapshot,
       ftsBatchSize: 120,
     );
 

@@ -64,6 +64,9 @@ void main() {
       snapshotIncremental: true,
       daemonWorkerConcurrency: 1,
       indexingMode: IndexingMode.immediate,
+      recordDuplicates: ProjectConfig.defaultRecordDuplicates,
+      reconcileIntervalSeconds: ProjectConfig.defaultReconcileIntervalSeconds,
+      daemonInitialSnapshot: ProjectConfig.defaultDaemonInitialSnapshot,
       ftsBatchSize: 500,
     );
     final dbPath = p.join(dir.path, '.lh', 'history.db');
@@ -103,6 +106,9 @@ void main() {
       snapshotIncremental: true,
       daemonWorkerConcurrency: 1,
       indexingMode: IndexingMode.immediate,
+      recordDuplicates: ProjectConfig.defaultRecordDuplicates,
+      reconcileIntervalSeconds: ProjectConfig.defaultReconcileIntervalSeconds,
+      daemonInitialSnapshot: ProjectConfig.defaultDaemonInitialSnapshot,
       ftsBatchSize: 500,
     );
     final dbPath = p.join(dir.path, '.lh', 'history.db');
@@ -143,6 +149,9 @@ void main() {
       snapshotIncremental: true,
       daemonWorkerConcurrency: 1,
       indexingMode: IndexingMode.immediate,
+      recordDuplicates: ProjectConfig.defaultRecordDuplicates,
+      reconcileIntervalSeconds: ProjectConfig.defaultReconcileIntervalSeconds,
+      daemonInitialSnapshot: ProjectConfig.defaultDaemonInitialSnapshot,
       ftsBatchSize: 500,
     );
     final dbPath = p.join(dir.path, '.lh', 'history.db');
