@@ -94,6 +94,7 @@ class RestoreCommand extends BaseCommand {
         mtimeMs: stat.modified.millisecondsSinceEpoch,
         sizeBytes: stat.size,
         deferIndexing: config.indexingMode == IndexingMode.deferred,
+        recordDuplicates: config.recordDuplicates,
       );
     } finally {
       await restoreDb.close();

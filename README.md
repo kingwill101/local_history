@@ -98,6 +98,32 @@ saves into a single revision.
 If a file is saved without any content changes, Local History skips inserting a
 new revision (based on checksum).
 
+### Duplicate recording
+By default, if a file is saved without any content changes, Local History skips
+inserting a new revision (based on checksum). Set `record_duplicates: true` to
+store every revision, even when content is identical.
+
+### Initial snapshot on daemon startup
+When the daemon starts, you can optionally capture an initial snapshot of all
+existing files to ensure pre-existing content is in the history. Set
+`daemon_initial_snapshot: true` in config, or use `lh daemon --initial-snapshot`.
+
+### Debounce window
+Filesystem changes are debounced (default 200ms) to collapse bursty editor
+saves into a single revision. Adjust `debounce_ms` in config or use
+`lh daemon --debounce-ms <value>` to override.
+
+### Worker pool concurrency
+The daemon uses a worker pool to process file changes in parallel. Control this
+with `daemon_worker_concurrency` in config (default: number of CPU cores).
+
+### Reconciliation
+The reconciliation pass scans the entire filesystem to catch any missed events.
+This is a safety net for events that bypass the file watcher (e.g., external
+editors, network changes). Set `reconcile_interval_seconds` to a positive value
+to enable periodic reconciliation (e.g., `3600` for hourly). Set to `0` to
+disable (default).
+
 ### Incremental snapshots
 Snapshots compare file metadata (mtime + size) and skip unchanged files by
 default. Use `lh snapshot --full` to force reading every file or
@@ -171,10 +197,14 @@ limits:
   max_revisions_per_file: 200
   max_days: 30
   max_file_size_mb: 5
+debounce_ms: 200
 snapshot_concurrency: 4
 snapshot_write_batch: 64
 snapshot_incremental: true
+record_duplicates: false
 reconcile_interval_seconds: 0
+daemon_worker_concurrency: 4
+daemon_initial_snapshot: false
 indexing_mode: immediate
 fts_batch_size: 500
 text_extensions:
@@ -187,17 +217,27 @@ text_extensions:
   - ".txt"
 ```
 
-### Notes
-- Paths are matched as POSIX-style relative paths (`lib/main.dart`).
-- To include hidden files, remove the `.*` and `**/.*` excludes.
-- Files larger than `max_file_size_mb` are skipped.
-- `snapshot_concurrency` controls how many files are read in parallel during
-  `lh snapshot`. CLI `--concurrency` overrides this value.
-- `snapshot_write_batch` controls how many revisions are committed per
-  transaction during `lh snapshot`. CLI `--write-batch` overrides this value.
-- `snapshot_incremental` skips unchanged files by comparing mtime and size.
-- `reconcile_interval_seconds` enables periodic reconciliation while the
-  daemon runs. Set to `0` to disable.
+### Configuration options
+
+- `debounce_ms` — Debounce window in milliseconds for file events (default: 200).
+- `snapshot_concurrency` — Number of files to read in parallel during snapshot
+  operations (default: number of CPU cores).
+- `snapshot_write_batch` — Number of revisions per transaction during snapshot
+  writes (default: 64).
+- `snapshot_incremental` — Skip unchanged files when snapshotting by comparing
+  mtime and size (default: true).
+- `record_duplicates` — Store every revision even when content is identical
+  (default: false).
+- `reconcile_interval_seconds` — Run periodic reconciliation (full-tree scan) at
+  this interval in seconds. Set to 0 to disable (default: 0).
+- `daemon_worker_concurrency` — Number of worker threads in the daemon's event
+  queue (default: number of CPU cores).
+- `daemon_initial_snapshot` — Capture an initial snapshot of all existing files
+  when the daemon starts (default: false).
+- `indexing_mode` — When to index revisions for search: `immediate` or
+  `deferred` (default: immediate).
+- `fts_batch_size` — Number of revisions to index per transaction during
+  deferred indexing (default: 500).
 - `indexing_mode` controls whether full-text search indexing happens
   immediately (`immediate`) or waits for `lh reindex` (`deferred`).
 - `fts_batch_size` controls how many revisions are indexed per batch during
@@ -233,12 +273,14 @@ lh daemon
 Options:
 - `--max-events <n>` Stop after processing N events (testing only)
 - `--debounce-ms <ms>` Override debounce window
+- `--initial-snapshot` Capture an initial snapshot of existing files at startup
 
 Notes:
 - Writes a lock file at `.lh/lock` to ensure a single daemon.
 - Exit code `75` indicates another daemon is already running.
 - Handles `SIGINT` to shut down cleanly.
 - Reloads config automatically on change.
+- Initial snapshot honors `snapshot_incremental` and respects size limits.
 
 ### `lh history <path>`
 List revision history for a file.
@@ -289,8 +331,12 @@ lh restore 42
 
 Options:
 - `--force` Skip confirmation prompt
+- `--no-capture` Do not record a new revision after restoring
 
-The daemon will capture the restore as a new revision.
+Notes:
+- When the daemon is running, the restore is recorded as a new revision.
+- When the daemon is down, `--no-capture` can be used to skip recording.
+- Recorded revisions honor the `record_duplicates` config setting.
 
 ### `lh search <query>`
 Search across historical text revisions.
@@ -392,13 +438,32 @@ lh snapshot-restore nightly-2025-01-01
 
 Options:
 - `--force` Skip confirmation prompt
+- `--delete-extra` Delete files not present in the snapshot
 - `--id <id>` Snapshot id
 - `--label <label>` Snapshot label
 
 Notes:
 - Restores all files recorded in the snapshot.
 - If a file is unchanged, it is skipped for efficiency.
-- Files created after the snapshot are **not deleted**.
+- Files created after the snapshot are **not deleted** unless `--delete-extra`
+  is used.
+- `--delete-extra` skips files that exceed size limits (matching snapshot rules).
+
+### `lh status`
+Check daemon liveness and last revision timestamp.
+
+```
+lh status
+```
+
+Output includes:
+- Daemon running status
+- Last heartbeat timestamp (if running)
+- Oldest and newest revision timestamps in the database
+
+Notes:
+- Heartbeat reflects the daemon's last successful write to the status file.
+- Useful for health checks and CI workflows.
 
 ### `lh verify`
 Verify revision checksums.

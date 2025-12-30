@@ -365,7 +365,10 @@ class ProjectConfig {
     buffer.writeln('snapshot_concurrency: $snapshotConcurrency');
     buffer.writeln('snapshot_write_batch: $snapshotWriteBatch');
     buffer.writeln('snapshot_incremental: $snapshotIncremental');
+    buffer.writeln('record_duplicates: $recordDuplicates');
+    buffer.writeln('reconcile_interval_seconds: $reconcileIntervalSeconds');
     buffer.writeln('daemon_worker_concurrency: $daemonWorkerConcurrency');
+    buffer.writeln('daemon_initial_snapshot: $daemonInitialSnapshot');
     buffer.writeln('indexing_mode: ${_indexingModeName(indexingMode)}');
     buffer.writeln('fts_batch_size: $ftsBatchSize');
     buffer.writeln('text_extensions:');
