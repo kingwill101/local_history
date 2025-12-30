@@ -1,5 +1,6 @@
 /// Migration that adds a checksum column to revisions.
 library;
+
 import 'package:ormed_sqlite/migrations.dart';
 
 /// Adds `checksum` to the `revisions` table.

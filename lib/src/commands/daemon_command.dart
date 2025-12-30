@@ -1,5 +1,6 @@
 /// CLI command that runs the Local History daemon.
 library;
+
 import 'dart:async';
 import 'dart:io';
 

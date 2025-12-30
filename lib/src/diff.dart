@@ -1,5 +1,6 @@
 /// Unified diff helpers for text revisions.
 library;
+
 import 'package:deviation/deviation.dart';
 import 'package:deviation/unified_diff.dart';
 

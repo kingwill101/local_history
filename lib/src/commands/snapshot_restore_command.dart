@@ -1,5 +1,6 @@
 /// CLI command that restores a snapshot to disk.
 library;
+
 import 'dart:io';
 import '../history_db.dart';
 import '../path_utils.dart';
@@ -154,13 +155,15 @@ class SnapshotRestoreCommand extends BaseCommand {
           deleted += 1;
         }
       }
+    } else if (deleteExtra && extraFiles.isNotEmpty) {
+      io.note('Delete cancelled');
     }
 
     io.success(
       'Snapshot ${snapshot.snapshotId} restored '
-      deleteExtra
-          ? '($restored files updated, $unchanged unchanged, $deleted deleted).'
-          : '($restored files updated, $unchanged unchanged).',
+      '${deleteExtra ? '($restored files updated, $unchanged unchanged, '
+                '$deleted deleted).' : '($restored files updated, '
+                '$unchanged unchanged).'}',
     );
   }
 }

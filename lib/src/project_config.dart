@@ -1,5 +1,6 @@
 /// Configuration models and helpers for Local History projects.
 library;
+
 import 'dart:io';
 
 import 'package:glob/glob.dart';

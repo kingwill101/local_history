@@ -1,5 +1,6 @@
 /// Daemon process that watches the filesystem and records revisions.
 library;
+
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';

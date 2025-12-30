@@ -1,5 +1,6 @@
 /// ORM model for the `snapshots` table.
 library;
+
 import 'package:ormed/ormed.dart';
 
 part 'snapshot_record.orm.dart';

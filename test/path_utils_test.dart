@@ -1,5 +1,6 @@
 /// Tests for path utility helpers.
 library;
+
 import 'package:local_history/src/path_utils.dart';
 import 'package:test/test.dart';
 

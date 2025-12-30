@@ -1,5 +1,6 @@
 /// CLI command that lists revision history for a file.
 library;
+
 import '../history_db.dart';
 import 'base_command.dart';
 
