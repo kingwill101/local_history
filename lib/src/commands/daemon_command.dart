@@ -4,6 +4,8 @@ library;
 import 'dart:async';
 import 'dart:io';
 
+import 'package:contextual/contextual.dart';
+
 import '../daemon.dart';
 import '../fs_watcher.dart';
 import '../history_db.dart';
@@ -28,6 +30,11 @@ class DaemonCommand extends BaseCommand {
       ..addFlag(
         'initial-snapshot',
         help: 'Run an initial snapshot pass before watching for changes.',
+      )
+      ..addFlag(
+        'db-logging',
+        help: 'Enable database query logging to the .lh directory.',
+        defaultsTo: true,
       );
   }
 
@@ -55,6 +62,7 @@ class DaemonCommand extends BaseCommand {
     final initialSnapshotOverride = argResults!.wasParsed('initial-snapshot')
         ? argResults!['initial-snapshot'] as bool
         : null;
+    final dbLogging = argResults!['db-logging'] as bool;
     final injectedEvents = eventsOverride;
     RandomAccessFile? lockHandle;
     HistoryDb? db;
@@ -65,11 +73,35 @@ class DaemonCommand extends BaseCommand {
       exitCode = Daemon.lockExitCode;
       return;
     }
+    // Set up contextual logger with daily file output
+    final logsDir = Directory('${paths.historyDir.path}/logs');
+    if (!logsDir.existsSync()) {
+      logsDir.createSync(recursive: true);
+    }
+    final logger = Logger()
+      ..addChannel(
+        'file',
+        DailyFileLogDriver(
+          '${logsDir.path}/daemon',
+          retentionDays: 7,
+        ),
+        formatter: PlainTextLogFormatter(),
+      )
+      ..addChannel(
+        'console',
+        ConsoleLogDriver(),
+        formatter: PrettyLogFormatter(),
+      )
+      ..withContext({'component': 'daemon'});
+
     try {
-      db = await HistoryDb.open(paths.dbFile.path);
+      db = await HistoryDb.open(paths.dbFile.path, enableLogging: dbLogging);
+      logger.info('Database opened', Context({'path': paths.dbFile.path}));
 
       ProcessSignal.sigint.watch().listen((_) async {
         io.warning('Stopping daemon...');
+        logger.info('Received SIGINT, shutting down');
+        await logger.shutdown();
         await db?.close();
         exit(0);
       });
@@ -94,6 +126,7 @@ class DaemonCommand extends BaseCommand {
         exitCode = 1;
       }
     } finally {
+      await logger.shutdown();
       await db?.close();
       if (db == null) {
         await Daemon.releaseLockHandle(paths.lockFile, lockHandle);

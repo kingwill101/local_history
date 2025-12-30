@@ -210,7 +210,7 @@ packages:
     source: hosted
     version: "1.19.1"
   contextual:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: contextual
       sha256: "1c38810223eefbc580cf40062694ad74a0c4367dd10435436175c3beaf80db63"

@@ -1,7 +1,7 @@
 name: local_history
 description: A sample command-line application.
 version: 1.0.0
-# repository: https://github.com/my_org/my_repo
+repository: https://github.com/kingwill101/local_history
 executables:
   lh: local_history
 
@@ -14,6 +14,7 @@ dependencies:
   artisanal: ^0.1.0-dev+5
   ormed: ^0.1.0-dev+5
   ormed_sqlite: ^0.1.0-dev+5
+  contextual: ^2.0.0
   crypto: ^3.0.3
   dart_mcp: ^0.4.0
   yaml: ^3.1.3

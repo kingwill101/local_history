@@ -35,11 +35,16 @@ class HistoryDb {
   /// Set [createIfMissing] to create and migrate the database if it does not
   /// exist.
   ///
+  /// Set [enableLogging] to enable query logging. Logs will be written to
+  /// [logFilePath] if provided; defaults to the `.lh/` directory.
+  ///
   /// #### Throws
   /// - [StateError] if the database is missing and [createIfMissing] is `false`.
   static Future<HistoryDb> open(
     String path, {
     bool createIfMissing = false,
+    bool enableLogging = false,
+    String? logFilePath,
   }) async {
     final file = File(path);
     if (!file.existsSync()) {
@@ -50,6 +55,15 @@ class HistoryDb {
       await file.create(recursive: true);
     }
 
+    // Default log file path to the .lh/logs directory if logging is enabled
+    final logsDir = Directory('${File(path).parent.path}/logs');
+    final resolvedLogPath = enableLogging
+        ? (logFilePath ?? '${logsDir.path}/db')
+        : null;
+    if (enableLogging && !logsDir.existsSync()) {
+      logsDir.createSync(recursive: true);
+    }
+
     _registerBinaryCodecs();
     final dataSourceName = 'lh_${_dataSourceCounter++}';
     final adapter = SqliteDriverAdapter.file(path);
@@ -58,6 +72,8 @@ class HistoryDb {
         driver: adapter,
         registry: bootstrapOrm(),
         name: dataSourceName,
+        logging: enableLogging,
+        logFilePath: resolvedLogPath,
       ),
     );
     await dataSource.init();
@@ -165,6 +181,10 @@ class HistoryDb {
           .first();
       final existingChecksum = fileRecord?.lastChecksum;
       final isDelete = changeType == 'delete';
+      // Auto-detect create vs modify if not a delete
+      final effectiveChangeType = isDelete
+          ? changeType
+          : (fileRecord == null ? 'create' : changeType);
       final isDuplicate =
           !recordDuplicates &&
           !isDelete &&
@@ -179,7 +199,7 @@ class HistoryDb {
           RevisionRecord(
             fileId: fileId,
             timestampMs: timestampMs,
-            changeType: changeType,
+            changeType: effectiveChangeType,
             label: label,
             content: content.toList(growable: false),
             checksum: checksum,

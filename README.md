@@ -496,6 +496,9 @@ Start the MCP server over stdio (read-only).
 lh mcp
 ```
 
+
+
+
 Options:
 - `--root <path>` Project root (defaults to current directory)
 - `--root-path <path>` Alias for `--root`

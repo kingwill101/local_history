@@ -119,13 +119,11 @@ class Snapshotter {
   /// Returns `null` if the revision was skipped (for example, duplicate
   /// content).
   Future<int?> writeSnapshot(SnapshotPayload payload) async {
-    final fileId = await db.getFileId(payload.path);
-    final changeType = fileId == null ? 'create' : 'modify';
     final deferIndexing = config.indexingMode == IndexingMode.deferred;
     final revId = await db.insertRevision(
       path: payload.path,
       timestampMs: DateTime.now().millisecondsSinceEpoch,
-      changeType: changeType,
+      changeType: 'modify', // insertRevision handles create vs modify internally
       content: payload.content,
       contentText: payload.contentText,
       mtimeMs: payload.mtimeMs,
