@@ -36,6 +36,25 @@ class SnapshotPayload {
   final int sizeBytes;
 }
 
+/// Outcome of a full-project snapshot pass.
+class SnapshotAllResult {
+  /// Creates a snapshot result summary.
+  SnapshotAllResult({
+    required this.scanned,
+    required this.stored,
+    required this.skipped,
+  });
+
+  /// Number of files evaluated.
+  final int scanned;
+
+  /// Number of revisions stored.
+  final int stored;
+
+  /// Number of files skipped (filtered or unchanged).
+  final int skipped;
+}
+
 /// Reads files and records revisions into the history database.
 class Snapshotter {
   /// Creates a snapshotter for [config] and [db].
@@ -129,6 +148,68 @@ class Snapshotter {
       return null;
     }
     return writeSnapshot(payload);
+  }
+
+  /// Reads and writes snapshots for all included files using metadata checks.
+  Future<SnapshotAllResult> snapshotAllIncremental({int? readBatchSize}) async {
+    var scanned = 0;
+    var stored = 0;
+    var skipped = 0;
+    final batch = <String>[];
+    final resolvedBatchSize = (readBatchSize ?? config.snapshotConcurrency);
+    final effectiveBatchSize = resolvedBatchSize < 1 ? 1 : resolvedBatchSize;
+
+    Future<void> flushBatch() async {
+      if (batch.isEmpty) return;
+      final metadata = await db.getFileMetadataMap(batch);
+      final payloads = await Future.wait(
+        batch.map(
+          (path) =>
+              readSnapshot(path, previous: metadata[path], incremental: true),
+        ),
+      );
+      for (var index = 0; index < batch.length; index += 1) {
+        scanned += 1;
+        final payload = payloads[index];
+        if (payload == null) {
+          skipped += 1;
+          continue;
+        }
+        final revId = await writeSnapshot(payload);
+        if (revId == null) {
+          skipped += 1;
+          continue;
+        }
+        stored += 1;
+      }
+      batch.clear();
+    }
+
+    await for (final entity in Directory(
+      config.rootPath,
+    ).list(recursive: config.watch.recursive, followLinks: false)) {
+      if (entity is! File) {
+        continue;
+      }
+      final relativePath = normalizeRelativePath(
+        rootPath: config.rootPath,
+        inputPath: entity.path,
+      );
+      if (!config.isPathIncluded(relativePath)) {
+        continue;
+      }
+      batch.add(relativePath);
+      if (batch.length >= effectiveBatchSize) {
+        await flushBatch();
+      }
+    }
+    await flushBatch();
+
+    return SnapshotAllResult(
+      scanned: scanned,
+      stored: stored,
+      skipped: skipped,
+    );
   }
 
   /// Records a delete marker for [relativePath].

@@ -198,6 +198,8 @@ class Daemon {
   Completer<void>? _workerCompleter;
   bool _workerRunning = false;
   late Snapshotter _snapshotter;
+  Timer? _reconcileTimer;
+  bool _reconcileRunning = false;
 
   /// Starts watching for filesystem changes and persists revisions.
   ///
@@ -218,7 +220,7 @@ class Daemon {
       await _runInitialSnapshot();
     }
     _startConfigWatcher();
-    _startHeartbeat();
+    _startReconcileLoop();
 
     _io?.info('Watching ${config.rootPath}');
 
@@ -241,7 +243,7 @@ class Daemon {
       await _drainPending();
     } finally {
       await _configSubscription?.cancel();
-      _stopHeartbeat();
+      _reconcileTimer?.cancel();
       await _releaseLock();
     }
   }
@@ -377,6 +379,7 @@ class Daemon {
       );
       config = updated;
       _snapshotter = Snapshotter(config: config, db: db);
+      _startReconcileLoop();
       _backoffUntilMs =
           DateTime.now().millisecondsSinceEpoch + _reloadBackoff.inMilliseconds;
       _io?.info('Reloaded config from ${_configFile.path}');
@@ -384,6 +387,44 @@ class Daemon {
       _io?.warning('Failed to reload config: $error');
     } finally {
       _reloadPending = false;
+    }
+  }
+
+  void _startReconcileLoop() {
+    _reconcileTimer?.cancel();
+    final intervalSeconds = config.reconcileIntervalSeconds;
+    if (intervalSeconds <= 0) {
+      return;
+    }
+    _reconcileTimer = Timer.periodic(
+      Duration(seconds: intervalSeconds),
+      (_) => unawaited(_runReconcile()),
+    );
+  }
+
+  Future<void> _runReconcile() async {
+    if (_reconcileRunning || _reloadPending || _workerRunning) {
+      return;
+    }
+    if (_pending.isNotEmpty || _pendingDeadlineMs.isNotEmpty) {
+      return;
+    }
+    if (_remainingBackoffMs() > 0) {
+      return;
+    }
+    _reconcileRunning = true;
+    try {
+      final result = await _snapshotter.snapshotAllIncremental();
+      if (result.stored > 0) {
+        _io?.info(
+          'Reconciled ${result.stored} revisions '
+          '(${result.scanned} files scanned, ${result.skipped} skipped).',
+        );
+      }
+    } catch (error) {
+      _io?.warning('Reconcile pass failed: $error');
+    } finally {
+      _reconcileRunning = false;
     }
   }
 

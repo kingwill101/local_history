@@ -72,7 +72,7 @@ class ProjectConfig {
     required this.snapshotConcurrency,
     required this.snapshotWriteBatch,
     required this.snapshotIncremental,
-    required this.daemonInitialSnapshot,
+    required this.reconcileIntervalSeconds,
     required this.indexingMode,
     required this.ftsBatchSize,
   }) : _includeGlobs = _buildGlobs(watch.include),
@@ -106,8 +106,8 @@ class ProjectConfig {
   /// Whether snapshots should skip unchanged files by default.
   final bool snapshotIncremental;
 
-  /// Whether daemon startup should capture an initial snapshot.
-  final bool daemonInitialSnapshot;
+  /// Seconds between reconciliation passes (0 disables).
+  final int reconcileIntervalSeconds;
 
   /// Full-text indexing mode for revisions.
   final IndexingMode indexingMode;
@@ -166,8 +166,8 @@ class ProjectConfig {
   /// Default incremental snapshot setting.
   static const bool defaultSnapshotIncremental = true;
 
-  /// Default initial daemon snapshot setting.
-  static const bool defaultDaemonInitialSnapshot = false;
+  /// Default reconciliation interval in seconds (0 disables).
+  static const int defaultReconcileIntervalSeconds = 0;
 
   /// Default indexing mode.
   static const IndexingMode defaultIndexingMode = IndexingMode.immediate;
@@ -197,7 +197,7 @@ class ProjectConfig {
     snapshotConcurrency: defaultSnapshotConcurrency,
     snapshotWriteBatch: defaultSnapshotWriteBatch,
     snapshotIncremental: defaultSnapshotIncremental,
-    daemonInitialSnapshot: defaultDaemonInitialSnapshot,
+    reconcileIntervalSeconds: defaultReconcileIntervalSeconds,
     indexingMode: defaultIndexingMode,
     ftsBatchSize: defaultFtsBatchSize,
   );
@@ -269,9 +269,9 @@ class ProjectConfig {
       map['snapshot_incremental'],
       fallback: defaultSnapshotIncremental,
     );
-    final daemonInitialSnapshot = _readBool(
-      map['daemon_initial_snapshot'],
-      fallback: defaultDaemonInitialSnapshot,
+    final reconcileIntervalSeconds = _readInt(
+      map['reconcile_interval_seconds'],
+      fallback: defaultReconcileIntervalSeconds,
     );
     final indexingMode = _readIndexingMode(
       map['indexing_mode'],
@@ -296,7 +296,9 @@ class ProjectConfig {
           ? defaultSnapshotWriteBatch
           : snapshotWriteBatch,
       snapshotIncremental: snapshotIncremental,
-      daemonInitialSnapshot: daemonInitialSnapshot,
+      reconcileIntervalSeconds: reconcileIntervalSeconds < 0
+          ? defaultReconcileIntervalSeconds
+          : reconcileIntervalSeconds,
       indexingMode: indexingMode,
       ftsBatchSize: ftsBatchSize < 1 ? defaultFtsBatchSize : ftsBatchSize,
     );
@@ -324,7 +326,7 @@ class ProjectConfig {
     buffer.writeln('snapshot_concurrency: $snapshotConcurrency');
     buffer.writeln('snapshot_write_batch: $snapshotWriteBatch');
     buffer.writeln('snapshot_incremental: $snapshotIncremental');
-    buffer.writeln('daemon_initial_snapshot: $daemonInitialSnapshot');
+    buffer.writeln('reconcile_interval_seconds: $reconcileIntervalSeconds');
     buffer.writeln('indexing_mode: ${_indexingModeName(indexingMode)}');
     buffer.writeln('fts_batch_size: $ftsBatchSize');
     buffer.writeln('text_extensions:');
