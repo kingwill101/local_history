@@ -115,6 +115,13 @@ const FieldDefinition _$RevisionRecordContentTextRawField = FieldDefinition(
   autoIncrement: false,
 );
 
+const RelationDefinition _$RevisionRecordFileRelation = RelationDefinition(
+  name: 'file',
+  kind: RelationKind.belongsTo,
+  targetModel: 'FileRecord',
+  foreignKey: 'file_id',
+);
+
 Map<String, Object?> _encodeRevisionRecordUntracked(
   Object model,
   ValueCodecRegistry registry,
@@ -160,7 +167,7 @@ final ModelDefinition<$RevisionRecord> _$RevisionRecordDefinition =
         _$RevisionRecordContentTextField,
         _$RevisionRecordContentTextRawField,
       ],
-      relations: const [],
+      relations: const [_$RevisionRecordFileRelation],
       softDeleteColumn: 'deleted_at',
       metadata: ModelAttributesMetadata(
         hidden: const <String>[],
@@ -889,6 +896,20 @@ class $RevisionRecord extends RevisionRecord
     replaceAttributes(values);
     attachModelDefinition(_$RevisionRecordDefinition);
   }
+
+  @override
+  FileRecord? get file {
+    if (relationLoaded('file')) {
+      return getRelation<FileRecord>('file');
+    }
+    return super.file;
+  }
+}
+
+extension RevisionRecordRelationQueries on RevisionRecord {
+  Query<FileRecord> fileQuery() {
+    return Model.query<FileRecord>().where('null', fileId);
+  }
 }
 
 class _RevisionRecordCopyWithSentinel {
@@ -908,6 +929,7 @@ extension RevisionRecordOrmExtension on RevisionRecord {
     Object? checksum = _copyWithSentinel,
     Object? contentText = _copyWithSentinel,
     Object? contentTextRaw = _copyWithSentinel,
+    Object? file = _copyWithSentinel,
   }) {
     return RevisionRecord(
       revId: identical(revId, _copyWithSentinel) ? this.revId : revId as int?,
@@ -935,6 +957,9 @@ extension RevisionRecordOrmExtension on RevisionRecord {
       contentTextRaw: identical(contentTextRaw, _copyWithSentinel)
           ? this.contentTextRaw
           : contentTextRaw as String?,
+      file: identical(file, _copyWithSentinel)
+          ? this.file
+          : file as FileRecord?,
     );
   }
 
@@ -980,6 +1005,17 @@ extension RevisionRecordPredicateFields on PredicateBuilder<RevisionRecord> {
       PredicateField<RevisionRecord, String?>(this, 'contentText');
   PredicateField<RevisionRecord, String?> get contentTextRaw =>
       PredicateField<RevisionRecord, String?>(this, 'contentTextRaw');
+}
+
+extension RevisionRecordTypedRelations on Query<RevisionRecord> {
+  Query<RevisionRecord> withFile([PredicateCallback<FileRecord>? constraint]) =>
+      withRelationTyped('file', constraint);
+  Query<RevisionRecord> whereHasFile([
+    PredicateCallback<FileRecord>? constraint,
+  ]) => whereHasTyped('file', constraint);
+  Query<RevisionRecord> orWhereHasFile([
+    PredicateCallback<FileRecord>? constraint,
+  ]) => orWhereHasTyped('file', constraint);
 }
 
 void registerRevisionRecordEventHandlers(EventBus bus) {

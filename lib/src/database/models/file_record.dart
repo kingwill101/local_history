@@ -41,4 +41,13 @@ class FileRecord extends Model<FileRecord> {
   /// Last observed file size in bytes.
   @OrmField(columnName: 'last_size_bytes')
   final int? lastSizeBytes;
+
+  /// Scope for filtering by branch context.
+  @OrmScope()
+  static Query<$FileRecord> branchIs(
+    Query<$FileRecord> query,
+    String branchContext,
+  ) {
+    return query.whereEquals('branchContext', branchContext);
+  }
 }

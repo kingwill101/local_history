@@ -731,6 +731,17 @@ extension FileRecordOrmExtension on FileRecord {
   }
 }
 
+extension $FileRecordScopes on Query<$FileRecord> {
+  Query<$FileRecord> branchIs(String branchContext) =>
+      FileRecord.branchIs(this, branchContext);
+}
+
+void registerFileRecordScopes(ScopeRegistry registry) {
+  registry.addLocalScope<$FileRecord>('branchIs', (query, args) {
+    return query.branchIs(args[0] as String);
+  });
+}
+
 extension FileRecordPredicateFields on PredicateBuilder<FileRecord> {
   PredicateField<FileRecord, int?> get fileId =>
       PredicateField<FileRecord, int?>(this, 'fileId');

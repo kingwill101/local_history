@@ -3,6 +3,8 @@ library;
 
 import 'package:ormed/ormed.dart';
 
+import 'file_record.dart';
+
 part 'revision_record.orm.dart';
 
 /// Database record for a stored revision.
@@ -19,6 +21,7 @@ class RevisionRecord extends Model<RevisionRecord> {
     this.checksum,
     this.contentText,
     this.contentTextRaw,
+    this.file,
   });
 
   /// Primary key for the revision row.
@@ -56,4 +59,9 @@ class RevisionRecord extends Model<RevisionRecord> {
   /// Unindexed decoded text content stored for deferred indexing.
   @OrmField(columnName: 'content_text_raw', isNullable: true)
   final String? contentTextRaw;
+
+  /// File relation for the revision.
+  @OrmField(ignore: true)
+  @OrmRelation.belongsTo(target: FileRecord, foreignKey: 'file_id')
+  final FileRecord? file;
 }

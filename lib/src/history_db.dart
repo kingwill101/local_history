@@ -158,9 +158,9 @@ class HistoryDb {
   Future<int?> getFileId(String path) async {
     final context = await _resolveBranchContext();
     final record = await _dataSource
-        .query<FileRecord>()
+        .query<$FileRecord>()
         .whereEquals('path', path)
-        .whereEquals('branchContext', context.value)
+        .branchIs(context.value)
         .first();
     return record?.fileId;
   }
@@ -178,9 +178,9 @@ class HistoryDb {
       return const <String, FileMetadata>{};
     }
     final records = await _dataSource
-        .query<FileRecord>()
+        .query<$FileRecord>()
         .whereIn('path', uniquePaths)
-        .whereEquals('branchContext', context.value)
+        .branchIs(context.value)
         .get();
     return {
       for (final record in records)
@@ -195,8 +195,8 @@ class HistoryDb {
   Future<List<String>> getAllTrackedFilePaths() async {
     final context = await _resolveBranchContext();
     final records = await _dataSource
-        .query<FileRecord>()
-        .whereEquals('branchContext', context.value)
+        .query<$FileRecord>()
+        .branchIs(context.value)
         .get();
     return [for (final record in records) record.path];
   }
@@ -209,9 +209,9 @@ class HistoryDb {
       uniqueBy: ['path', 'branchContext'],
     );
     final record = await _dataSource
-        .query<FileRecord>()
+        .query<$FileRecord>()
         .whereEquals('path', path)
-        .whereEquals('branchContext', context.value)
+        .branchIs(context.value)
         .first();
     if (record?.fileId == null) {
       throw StateError('Failed to resolve file id for $path');
@@ -239,9 +239,9 @@ class HistoryDb {
       final checksum = sha256.convert(content).bytes;
       return _dataSource.transaction(() async {
         final fileRecord = await _dataSource
-            .query<FileRecord>()
+            .query<$FileRecord>()
             .whereEquals('path', path)
-            .whereEquals('branchContext', context.value)
+            .branchIs(context.value)
             .first();
         final existingChecksum = fileRecord?.lastChecksum;
         final isDelete = changeType == 'delete';
@@ -331,9 +331,9 @@ class HistoryDb {
 
         if (toLookup.isNotEmpty) {
           final existing = await _dataSource
-              .query<FileRecord>()
+              .query<$FileRecord>()
               .whereIn('path', toLookup)
-              .whereEquals('branchContext', branchContext)
+              .branchIs(branchContext)
               .get();
           for (final record in existing) {
             final fileId = record.fileId;
@@ -353,9 +353,9 @@ class HistoryDb {
             uniqueBy: ['path', 'branchContext'],
           );
           final record = await _dataSource
-              .query<FileRecord>()
+              .query<$FileRecord>()
               .whereEquals('path', path)
-              .whereEquals('branchContext', branchContext)
+              .branchIs(branchContext)
               .first();
           if (record?.fileId == null) {
             throw StateError('Failed to resolve file id for $path');
@@ -483,19 +483,15 @@ class HistoryDb {
           .first();
       return latest?.timestampMs;
     }
-    final rows = await _adapter.queryRaw(
-      '''
-SELECT MAX(r.timestamp) AS ts
-FROM revisions r
-JOIN files f ON f.file_id = r.file_id
-WHERE f.branch_context = ?
-''',
-      [scopedBranch],
-    );
-    if (rows.isEmpty) return null;
-    final value = rows.first['ts'];
-    if (value == null) return null;
-    return _asInt(value);
+    final latest = await _dataSource
+        .query<RevisionRecord>()
+        .whereHas(
+          'file',
+          (query) => query.where('branchContext', scopedBranch),
+        )
+        .orderBy('timestampMs', descending: true)
+        .first();
+    return latest?.timestampMs;
   }
 
   /// Returns the revision payload for [revId], or `null` if not found.
@@ -552,9 +548,11 @@ WHERE f.branch_context = ?
 
     List<int>? fileIds;
     if (path != null) {
-      var fileQuery = _dataSource.query<FileRecord>().whereEquals('path', path);
+      var fileQuery = _dataSource
+          .query<$FileRecord>()
+          .whereEquals('path', path);
       if (scopedBranch != null) {
-        fileQuery = fileQuery.whereEquals('branchContext', scopedBranch);
+        fileQuery = fileQuery.branchIs(scopedBranch);
       }
       final records = await fileQuery.get();
       fileIds = records
@@ -697,8 +695,8 @@ WHERE f.branch_context = ?
 
   Future<List<int>> _fileIdsForBranch(String branchContext) async {
     final records = await _dataSource
-        .query<FileRecord>()
-        .whereEquals('branchContext', branchContext)
+        .query<$FileRecord>()
+        .branchIs(branchContext)
         .get();
     return records
         .map((record) => record.fileId)
@@ -888,23 +886,16 @@ WHERE f.branch_context = ?
           final cutoff = DateTime.now()
               .subtract(Duration(days: maxDays))
               .millisecondsSinceEpoch;
-          if (scopedBranch == null) {
-            await _dataSource
-                .query<RevisionRecord>()
-                .whereLessThan('timestampMs', cutoff)
-                .delete();
-          } else {
-            await _adapter.executeRaw(
-              '''
-DELETE FROM revisions
-WHERE timestamp < ?
-AND file_id IN (
-  SELECT file_id FROM files WHERE branch_context = ?
-)
-''',
-              [cutoff, scopedBranch],
+          Query<RevisionRecord> revisionQuery = _dataSource
+              .query<RevisionRecord>()
+              .whereLessThan('timestampMs', cutoff);
+          if (scopedBranch != null) {
+            revisionQuery = revisionQuery.whereHas(
+              'file',
+              (query) => query.where('branchContext', scopedBranch),
             );
           }
+          await revisionQuery.delete();
         }
         if (maxRevisionsPerFile != null && maxRevisionsPerFile > 0) {
           Query<FileRecord> filesQuery = _dataSource.query<FileRecord>();
