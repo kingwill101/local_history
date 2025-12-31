@@ -17,18 +17,27 @@ import 'database/models/file_record.dart';
 import 'database/models/revision_record.dart';
 import 'database/models/snapshot_record.dart';
 import 'database/models/snapshot_revision_record.dart';
+import 'git_context.dart';
 import 'history_models.dart';
 
 const String _ftsTable = 'revisions_content_text_fts';
 
 /// Provides database operations for Local History revisions and snapshots.
 class HistoryDb {
-  HistoryDb._(this.path, this._dataSource, this._adapter);
+  HistoryDb._(
+    this.path,
+    this._dataSource,
+    this._adapter,
+    this._branchContextProvider,
+  );
+
+  static const String _defaultBranchContext = 'default';
 
   /// Filesystem path to the database file.
   final String path;
   final DataSource _dataSource;
   final SqliteDriverAdapter _adapter;
+  BranchContextProvider? _branchContextProvider;
   static int _dataSourceCounter = 0;
 
   /// Opens a history database at [path].
@@ -49,6 +58,7 @@ class HistoryDb {
     bool enableLogging = false,
     String? logFilePath,
     contextual.Logger? logger,
+    BranchContextProvider? branchContextProvider,
   }) async {
     final file = File(path);
     if (!file.existsSync()) {
@@ -91,7 +101,19 @@ class HistoryDb {
     );
     await runner.applyAll();
 
-    return HistoryDb._(path, dataSource, adapter);
+    return HistoryDb._(path, dataSource, adapter, branchContextProvider);
+  }
+
+  /// Updates the branch context provider for subsequent operations.
+  void updateBranchContextProvider(BranchContextProvider? provider) {
+    _branchContextProvider = provider;
+  }
+
+  Future<BranchContext> _resolveBranchContext() async {
+    if (_branchContextProvider == null) {
+      return const BranchContext(enabled: false, value: _defaultBranchContext);
+    }
+    return _branchContextProvider!();
   }
 
   static void _registerBinaryCodecs() {
@@ -113,9 +135,11 @@ class HistoryDb {
 
   /// Returns the file id for [path], or `null` if it is unknown.
   Future<int?> getFileId(String path) async {
+    final context = await _resolveBranchContext();
     final record = await _dataSource
         .query<FileRecord>()
         .whereEquals('path', path)
+        .whereEquals('branchContext', context.value)
         .first();
     return record?.fileId;
   }
@@ -124,6 +148,7 @@ class HistoryDb {
   Future<Map<String, FileMetadata>> getFileMetadataMap(
     Iterable<String> paths,
   ) async {
+    final context = await _resolveBranchContext();
     final uniquePaths = paths
         .where((path) => path.isNotEmpty)
         .toSet()
@@ -134,6 +159,7 @@ class HistoryDb {
     final records = await _dataSource
         .query<FileRecord>()
         .whereIn('path', uniquePaths)
+        .whereEquals('branchContext', context.value)
         .get();
     return {
       for (final record in records)
@@ -146,16 +172,25 @@ class HistoryDb {
 
   /// Returns all file paths that have been tracked in the history database.
   Future<List<String>> getAllTrackedFilePaths() async {
-    final records = await _dataSource.query<FileRecord>().get();
+    final context = await _resolveBranchContext();
+    final records = await _dataSource
+        .query<FileRecord>()
+        .whereEquals('branchContext', context.value)
+        .get();
     return [for (final record in records) record.path];
   }
 
   Future<int> _ensureFileId(String path) async {
+    final context = await _resolveBranchContext();
     final repo = _dataSource.repo<FileRecord>();
-    await repo.upsert(FileRecord(path: path), uniqueBy: ['path']);
+    await repo.upsert(
+      FileRecord(path: path, branchContext: context.value),
+      uniqueBy: ['path', 'branchContext'],
+    );
     final record = await _dataSource
         .query<FileRecord>()
         .whereEquals('path', path)
+        .whereEquals('branchContext', context.value)
         .first();
     if (record?.fileId == null) {
       throw StateError('Failed to resolve file id for $path');
@@ -178,11 +213,13 @@ class HistoryDb {
     bool deferIndexing = false,
     bool recordDuplicates = false,
   }) async {
+    final context = await _resolveBranchContext();
     final checksum = sha256.convert(content).bytes;
     return _dataSource.transaction(() async {
       final fileRecord = await _dataSource
           .query<FileRecord>()
           .whereEquals('path', path)
+          .whereEquals('branchContext', context.value)
           .first();
       final existingChecksum = fileRecord?.lastChecksum;
       final isDelete = changeType == 'delete';
@@ -252,6 +289,9 @@ class HistoryDb {
     bool recordDuplicates = false,
   }) async {
     if (writes.isEmpty) return const [];
+    final context = await _resolveBranchContext();
+    final branchContext = context.value;
+    String cacheKey(String path) => '$branchContext::$path';
     final cache = fileIdCache ?? <String, int>{};
     final knownExisting = <String>{...cache.keys};
     final checksumCache = <String, List<int>?>{};
@@ -262,48 +302,53 @@ class HistoryDb {
           .toSet()
           .toList(growable: false);
       final toLookup = uniquePaths
-          .where((path) => !cache.containsKey(path))
+          .where((path) => !cache.containsKey(cacheKey(path)))
           .toList(growable: false);
 
       if (toLookup.isNotEmpty) {
         final existing = await _dataSource
             .query<FileRecord>()
             .whereIn('path', toLookup)
+            .whereEquals('branchContext', branchContext)
             .get();
         for (final record in existing) {
           final fileId = record.fileId;
           if (fileId == null) continue;
-          cache[record.path] = fileId;
-          knownExisting.add(record.path);
-          checksumCache[record.path] = record.lastChecksum;
+          final key = cacheKey(record.path);
+          cache[key] = fileId;
+          knownExisting.add(key);
+          checksumCache[key] = record.lastChecksum;
         }
       }
 
       for (final path in toLookup) {
-        if (cache.containsKey(path)) continue;
+        final key = cacheKey(path);
+        if (cache.containsKey(key)) continue;
         await _dataSource.repo<FileRecord>().upsert(
-          FileRecord(path: path),
-          uniqueBy: ['path'],
+          FileRecord(path: path, branchContext: branchContext),
+          uniqueBy: ['path', 'branchContext'],
         );
         final record = await _dataSource
             .query<FileRecord>()
             .whereEquals('path', path)
+            .whereEquals('branchContext', branchContext)
             .first();
         if (record?.fileId == null) {
           throw StateError('Failed to resolve file id for $path');
         }
-        cache[path] = record!.fileId!;
-        checksumCache[path] = record.lastChecksum;
+        cache[key] = record!.fileId!;
+        checksumCache[key] = record.lastChecksum;
       }
 
       final insertedIds = <int>[];
       for (final write in writes) {
-        final fileId = cache[write.path];
+        final key = cacheKey(write.path);
+        final fileId = cache[key];
         if (fileId == null) {
           continue;
         }
         final checksum = sha256.convert(write.content).bytes;
-        final lastChecksum = checksumCache[write.path];
+        final lastChecksum = checksumCache[key];
         final isDuplicate =
             !recordDuplicates &&
             lastChecksum != null &&
@@ -311,9 +356,7 @@ class HistoryDb {
         final indexedText = deferIndexing ? null : write.contentText;
         final rawText = write.contentText;
         if (!isDuplicate) {
-          final changeType = knownExisting.contains(write.path)
-              ? 'modify'
-              : 'create';
+          final changeType = knownExisting.contains(key) ? 'modify' : 'create';
           final inserted = await _dataSource.repo<RevisionRecord>().insert(
             RevisionRecord(
               fileId: fileId,
@@ -333,7 +376,7 @@ class HistoryDb {
               SnapshotRevisionRecord(snapshotId: snapshotId, revId: revId),
               uniqueBy: ['snapshotId', 'revId'],
             );
-            knownExisting.add(write.path);
+            knownExisting.add(key);
           }
         }
         final updates = <String, Object?>{'lastChecksum': checksum};
@@ -347,8 +390,8 @@ class HistoryDb {
             .query<FileRecord>()
             .whereEquals('fileId', fileId)
             .update(updates);
-        checksumCache[write.path] = checksum;
-        knownExisting.add(write.path);
+        checksumCache[key] = checksum;
+        knownExisting.add(key);
       }
 
       return insertedIds;
@@ -359,13 +402,33 @@ class HistoryDb {
   ///
   /// If [limit] is provided, only that many revisions are returned.
   Future<List<HistoryEntry>> listHistory(String path, {int? limit}) async {
-    final fileId = await getFileId(path);
-    if (fileId == null) return const [];
-
-    var query = _dataSource
-        .query<RevisionRecord>()
-        .whereEquals('fileId', fileId)
-        .orderBy('timestampMs', descending: true);
+    final context = await _resolveBranchContext();
+    final scopedBranch = context.scopedValue;
+    Query<RevisionRecord> query;
+    if (scopedBranch == null) {
+      final fileIds = await _dataSource
+          .query<FileRecord>()
+          .whereEquals('path', path)
+          .get()
+          .then(
+            (records) => records
+                .map((record) => record.fileId)
+                .whereType<int>()
+                .toList(growable: false),
+          );
+      if (fileIds.isEmpty) return const [];
+      query = _dataSource
+          .query<RevisionRecord>()
+          .whereIn('fileId', fileIds)
+          .orderBy('timestampMs', descending: true);
+    } else {
+      final fileId = await getFileId(path);
+      if (fileId == null) return const [];
+      query = _dataSource
+          .query<RevisionRecord>()
+          .whereEquals('fileId', fileId)
+          .orderBy('timestampMs', descending: true);
+    }
     if (limit != null && limit > 0) {
       query = query.limit(limit);
     }
@@ -384,11 +447,28 @@ class HistoryDb {
 
   /// Returns the newest revision timestamp in epoch milliseconds.
   Future<int?> getLatestRevisionTimestampMs() async {
-    final latest = await _dataSource
-        .query<RevisionRecord>()
-        .orderBy('timestampMs', descending: true)
-        .first();
-    return latest?.timestampMs;
+    final context = await _resolveBranchContext();
+    final scopedBranch = context.scopedValue;
+    if (scopedBranch == null) {
+      final latest = await _dataSource
+          .query<RevisionRecord>()
+          .orderBy('timestampMs', descending: true)
+          .first();
+      return latest?.timestampMs;
+    }
+    final rows = await _adapter.queryRaw(
+      '''
+SELECT MAX(r.timestamp) AS ts
+FROM revisions r
+JOIN files f ON f.file_id = r.file_id
+WHERE f.branch_context = ?
+''',
+      [scopedBranch],
+    );
+    if (rows.isEmpty) return null;
+    final value = rows.first['ts'];
+    if (value == null) return null;
+    return _asInt(value);
   }
 
   /// Returns the revision payload for [revId], or `null` if not found.
@@ -403,10 +483,16 @@ class HistoryDb {
         .query<FileRecord>()
         .whereEquals('fileId', revision.fileId)
         .first();
+    if (file == null) return null;
+    final context = await _resolveBranchContext();
+    final scopedBranch = context.scopedValue;
+    if (scopedBranch != null && file.branchContext != scopedBranch) {
+      return null;
+    }
 
     return HistoryRevision(
       revId: revision.revId ?? 0,
-      path: file?.path ?? '',
+      path: file.path,
       timestampMs: revision.timestampMs,
       changeType: revision.changeType,
       label: revision.label,
@@ -430,6 +516,8 @@ class HistoryDb {
   }) async {
     if (limit <= 0) return const [];
 
+    final context = await _resolveBranchContext();
+    final scopedBranch = context.scopedValue;
     final where = <String>['$_ftsTable MATCH ?'];
     final params = <Object?>[query];
 
@@ -444,6 +532,10 @@ class HistoryDb {
     if (untilMs != null) {
       where.add('r.timestamp <= ?');
       params.add(untilMs);
+    }
+    if (scopedBranch != null) {
+      where.add('f.branch_context = ?');
+      params.add(scopedBranch);
     }
 
     // TODO: Replace raw SQL FTS query once Ormed exposes MATCH helpers.
@@ -483,6 +575,12 @@ LIMIT ?
         .whereNull('contentText')
         .whereNotNull('contentTextRaw')
         .orderBy('revId');
+    final scopedBranch = (await _resolveBranchContext()).scopedValue;
+    if (scopedBranch != null) {
+      final fileIds = await _fileIdsForBranch(scopedBranch);
+      if (fileIds.isEmpty) return 0;
+      query.whereIn('fileId', fileIds);
+    }
     return _reindexQuery(query, batchSize);
   }
 
@@ -490,12 +588,33 @@ LIMIT ?
   ///
   /// Returns the number of revisions re-indexed.
   Future<int> reindexAll({required int batchSize}) async {
+    final scopedBranch = (await _resolveBranchContext()).scopedValue;
     // TODO: Replace raw SQL once Ormed exposes FTS management helpers.
-    await _adapter.executeRaw('DELETE FROM $_ftsTable');
+    if (scopedBranch == null) {
+      await _adapter.executeRaw('DELETE FROM $_ftsTable');
+    } else {
+      await _adapter.executeRaw(
+        '''
+DELETE FROM $_ftsTable
+WHERE rowid IN (
+  SELECT r.rev_id
+  FROM revisions r
+  JOIN files f ON f.file_id = r.file_id
+  WHERE f.branch_context = ?
+)
+''',
+        [scopedBranch],
+      );
+    }
     final query = _dataSource
         .query<RevisionRecord>()
         .whereNotNull('contentTextRaw')
         .orderBy('revId');
+    if (scopedBranch != null) {
+      final fileIds = await _fileIdsForBranch(scopedBranch);
+      if (fileIds.isEmpty) return 0;
+      query.whereIn('fileId', fileIds);
+    }
     return _reindexQuery(query, batchSize);
   }
 
@@ -524,8 +643,32 @@ LIMIT ?
     return updated;
   }
 
+  Future<List<int>> _fileIdsForBranch(String branchContext) async {
+    final records = await _dataSource
+        .query<FileRecord>()
+        .whereEquals('branchContext', branchContext)
+        .get();
+    return records
+        .map((record) => record.fileId)
+        .whereType<int>()
+        .toList(growable: false);
+  }
+
   /// Updates the label for revision [revId].
   Future<void> labelRevision(int revId, String label) async {
+    final scopedBranch = (await _resolveBranchContext()).scopedValue;
+    if (scopedBranch != null) {
+      final revision = await _dataSource
+          .query<RevisionRecord>()
+          .whereEquals('revId', revId)
+          .first();
+      if (revision == null) return;
+      final file = await _dataSource
+          .query<FileRecord>()
+          .whereEquals('fileId', revision.fileId)
+          .first();
+      if (file == null || file.branchContext != scopedBranch) return;
+    }
     await _dataSource
         .query<RevisionRecord>()
         .whereEquals('revId', revId)
@@ -534,6 +677,19 @@ LIMIT ?
 
   /// Updates the stored checksum for revision [revId].
   Future<void> updateRevisionChecksum(int revId, List<int>? checksum) async {
+    final scopedBranch = (await _resolveBranchContext()).scopedValue;
+    if (scopedBranch != null) {
+      final revision = await _dataSource
+          .query<RevisionRecord>()
+          .whereEquals('revId', revId)
+          .first();
+      if (revision == null) return;
+      final file = await _dataSource
+          .query<FileRecord>()
+          .whereEquals('fileId', revision.fileId)
+          .first();
+      if (file == null || file.branchContext != scopedBranch) return;
+    }
     await _dataSource
         .query<RevisionRecord>()
         .whereEquals('revId', revId)
@@ -545,6 +701,7 @@ LIMIT ?
   /// #### Throws
   /// - [StateError] if [label] is already in use.
   Future<SnapshotInfo> createSnapshot({String? label}) async {
+    final context = await _resolveBranchContext();
     if (label != null) {
       final existing = await getSnapshotByLabel(label);
       if (existing != null) {
@@ -553,7 +710,11 @@ LIMIT ?
     }
     final now = DateTime.now().millisecondsSinceEpoch;
     final inserted = await _dataSource.repo<SnapshotRecord>().insert(
-      SnapshotRecord(createdAtMs: now, label: label),
+      SnapshotRecord(
+        createdAtMs: now,
+        label: label,
+        branchContext: context.value,
+      ),
     );
     final snapshotId = inserted.snapshotId;
     if (snapshotId == null) {
@@ -568,19 +729,26 @@ LIMIT ?
 
   /// Returns snapshot metadata for [snapshotId], or `null` if missing.
   Future<SnapshotInfo?> getSnapshotById(int snapshotId) async {
-    final record = await _dataSource
-        .query<SnapshotRecord>()
-        .whereEquals('snapshotId', snapshotId)
-        .first();
+    final scopedBranch = (await _resolveBranchContext()).scopedValue;
+    var query = _dataSource.query<SnapshotRecord>().whereEquals(
+      'snapshotId',
+      snapshotId,
+    );
+    if (scopedBranch != null) {
+      query = query.whereEquals('branchContext', scopedBranch);
+    }
+    final record = await query.first();
     return _snapshotFromRecord(record);
   }
 
   /// Returns snapshot metadata for [label], or `null` if missing.
   Future<SnapshotInfo?> getSnapshotByLabel(String label) async {
-    final record = await _dataSource
-        .query<SnapshotRecord>()
-        .whereEquals('label', label)
-        .first();
+    final scopedBranch = (await _resolveBranchContext()).scopedValue;
+    var query = _dataSource.query<SnapshotRecord>().whereEquals('label', label);
+    if (scopedBranch != null) {
+      query = query.whereEquals('branchContext', scopedBranch);
+    }
+    final record = await query.first();
     return _snapshotFromRecord(record);
   }
 
@@ -595,6 +763,15 @@ LIMIT ?
   /// Returns revisions linked to [snapshotId], sorted by path.
   Future<List<HistoryRevision>> listSnapshotRevisions(int snapshotId) async {
     final result = <HistoryRevision>[];
+    final scopedBranch = (await _resolveBranchContext()).scopedValue;
+    if (scopedBranch != null) {
+      final snapshot = await _dataSource
+          .query<SnapshotRecord>()
+          .whereEquals('snapshotId', snapshotId)
+          .whereEquals('branchContext', scopedBranch)
+          .first();
+      if (snapshot == null) return const [];
+    }
     await _dataSource
         .query<SnapshotRevisionRecord>()
         .whereEquals('snapshotId', snapshotId)
@@ -644,18 +821,36 @@ LIMIT ?
 
   /// Deletes old revisions based on [maxDays] and [maxRevisionsPerFile].
   Future<void> gc({int? maxDays, int? maxRevisionsPerFile}) async {
+    final scopedBranch = (await _resolveBranchContext()).scopedValue;
     await _dataSource.transaction(() async {
       if (maxDays != null && maxDays > 0) {
         final cutoff = DateTime.now()
             .subtract(Duration(days: maxDays))
             .millisecondsSinceEpoch;
-        await _dataSource
-            .query<RevisionRecord>()
-            .whereLessThan('timestampMs', cutoff)
-            .delete();
+        if (scopedBranch == null) {
+          await _dataSource
+              .query<RevisionRecord>()
+              .whereLessThan('timestampMs', cutoff)
+              .delete();
+        } else {
+          await _adapter.executeRaw(
+            '''
+DELETE FROM revisions
+WHERE timestamp < ?
+AND file_id IN (
+  SELECT file_id FROM files WHERE branch_context = ?
+)
+''',
+            [cutoff, scopedBranch],
+          );
+        }
       }
       if (maxRevisionsPerFile != null && maxRevisionsPerFile > 0) {
-        await _dataSource.query<FileRecord>().chunk(100, (rows) async {
+        Query<FileRecord> filesQuery = _dataSource.query<FileRecord>();
+        if (scopedBranch != null) {
+          filesQuery = filesQuery.whereEquals('branchContext', scopedBranch);
+        }
+        await filesQuery.chunk(100, (rows) async {
           if (rows.isEmpty) return false;
           for (final row in rows) {
             final file = row.model;
@@ -699,6 +894,16 @@ LIMIT ?
     if (revision == null || revision.revId == null) {
       return const VerifyResult(VerifyStatus.notFound);
     }
+    final scopedBranch = (await _resolveBranchContext()).scopedValue;
+    if (scopedBranch != null) {
+      final file = await _dataSource
+          .query<FileRecord>()
+          .whereEquals('fileId', revision.fileId)
+          .first();
+      if (file == null || file.branchContext != scopedBranch) {
+        return const VerifyResult(VerifyStatus.notFound);
+      }
+    }
     if (revision.checksum == null || revision.checksum!.isEmpty) {
       return VerifyResult(VerifyStatus.missingChecksum, revId: revId);
     }
@@ -716,7 +921,16 @@ LIMIT ?
     var missing = 0;
     var mismatch = 0;
     var total = 0;
-    await _dataSource.query<RevisionRecord>().chunkById(200, (rows) async {
+    final scopedBranch = (await _resolveBranchContext()).scopedValue;
+    Query<RevisionRecord> query = _dataSource.query<RevisionRecord>();
+    if (scopedBranch != null) {
+      final fileIds = await _fileIdsForBranch(scopedBranch);
+      if (fileIds.isEmpty) {
+        return VerifySummary(total: 0, ok: 0, missingChecksum: 0, mismatch: 0);
+      }
+      query = query.whereIn('fileId', fileIds);
+    }
+    await query.chunkById(200, (rows) async {
       if (rows.isEmpty) return false;
       for (final row in rows) {
         final revision = row.model;

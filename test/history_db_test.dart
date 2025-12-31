@@ -6,6 +6,7 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:local_history/local_history.dart';
+import 'package:local_history/src/git_context.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -49,6 +50,52 @@ void main() {
     expect(pruned.length, 1);
 
     await db.close();
+  });
+
+  test('history database scopes revisions by branch context', () async {
+    final tempDir = await Directory.systemTemp.createTemp('lh_db_branch');
+    addTearDown(() => tempDir.delete(recursive: true));
+
+    final dbPath = p.join(tempDir.path, 'history.db');
+    final mainDb = await HistoryDb.open(
+      dbPath,
+      createIfMissing: true,
+      branchContextProvider: () async =>
+          const BranchContext(enabled: true, value: 'main'),
+    );
+    await mainDb.insertRevision(
+      path: 'lib/main.dart',
+      timestampMs: 1000,
+      changeType: 'create',
+      content: Uint8List.fromList('main'.codeUnits),
+      contentText: 'main',
+    );
+    await mainDb.close();
+
+    final featureDb = await HistoryDb.open(
+      dbPath,
+      branchContextProvider: () async =>
+          const BranchContext(enabled: true, value: 'feature'),
+    );
+    final featureHistory = await featureDb.listHistory('lib/main.dart');
+    expect(featureHistory.isEmpty, true);
+    await featureDb.insertRevision(
+      path: 'lib/main.dart',
+      timestampMs: 2000,
+      changeType: 'modify',
+      content: Uint8List.fromList('feature'.codeUnits),
+      contentText: 'feature',
+    );
+    await featureDb.close();
+
+    final reopenedMainDb = await HistoryDb.open(
+      dbPath,
+      branchContextProvider: () async =>
+          const BranchContext(enabled: true, value: 'main'),
+    );
+    final mainHistory = await reopenedMainDb.listHistory('lib/main.dart');
+    expect(mainHistory.length, 1);
+    await reopenedMainDb.close();
   });
 
   test('history database supports search filters and null cases', () async {

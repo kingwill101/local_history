@@ -8,6 +8,7 @@ import 'package:artisanal/artisanal.dart';
 import 'package:path/path.dart' as p;
 
 import '../path_utils.dart';
+import '../git_context.dart';
 import '../project_config.dart';
 import '../project_paths.dart';
 
@@ -22,6 +23,14 @@ abstract class BaseCommand extends Command<void> {
   /// Loads the project configuration.
   Future<ProjectConfig> loadConfig() {
     return ProjectConfig.load(paths.configFile, rootPath: paths.root.path);
+  }
+
+  /// Builds a branch context provider for the current project.
+  BranchContextProvider branchContextProvider(ProjectConfig config) {
+    return () => resolveBranchContext(
+      rootPath: paths.root.path,
+      config: config.gitContext,
+    );
   }
 
   /// Resolves [input] to a project-relative path.

@@ -11,6 +11,7 @@ import 'package:artisanal/artisanal.dart';
 import 'package:watcher/watcher.dart';
 
 import 'fs_watcher.dart';
+import 'git_context.dart';
 import 'history_db.dart';
 import 'path_utils.dart';
 import 'project_config.dart';
@@ -329,14 +330,14 @@ class Daemon {
   void _ensureWorkers() {
     _workController ??= StreamController<void>.broadcast();
     final desired = _desiredWorkerCount();
-    
+
     // Scale up: add new workers if needed
     while (_workerFutures.length < desired) {
       final workerId = _workerFutures.length + 1;
       _workerFutures.add(_runWorker(workerId));
       _io?.verbose('Worker $workerId started.');
     }
-    
+
     // Scale down: cap the number of workers by signaling excess ones to stop
     if (_workerFutures.length > desired) {
       final excessCount = _workerFutures.length - desired;
@@ -363,7 +364,7 @@ class Daemon {
         _io?.verbose('Worker $workerId stopping due to scale-down.');
         break;
       }
-      
+
       while (_queue.isNotEmpty) {
         final item = _queue.removeFirst();
         _activeWorkers += 1;
@@ -468,6 +469,12 @@ class Daemon {
         rootPath: config.rootPath,
       );
       config = updated;
+      db.updateBranchContextProvider(() {
+        return resolveBranchContext(
+          rootPath: config.rootPath,
+          config: config.gitContext,
+        );
+      });
       _snapshotter = Snapshotter(config: config, db: db);
       _startReconcileLoop();
       _backoffUntilMs =
@@ -496,15 +503,16 @@ class Daemon {
     final now = DateTime.now().millisecondsSinceEpoch;
     final lastAttempt = _lastReconcileAttemptMs;
     final timeSinceLastAttempt = lastAttempt != null ? now - lastAttempt : null;
-    
+
     // Force reconciliation if no attempt has been made in a very long time (5x the configured interval)
     // This prevents starvation when there's continuous churn
     final intervalSeconds = config.reconcileIntervalSeconds;
     final forceReconcileMs = intervalSeconds > 0 ? intervalSeconds * 5000 : 0;
-    final shouldForceReconcile = timeSinceLastAttempt != null && 
-                                 timeSinceLastAttempt > forceReconcileMs &&
-                                 forceReconcileMs > 0;
-    
+    final shouldForceReconcile =
+        timeSinceLastAttempt != null &&
+        timeSinceLastAttempt > forceReconcileMs &&
+        forceReconcileMs > 0;
+
     if (!shouldForceReconcile) {
       if (_reconcileRunning || _reloadPending || _activeWorkers > 0) {
         return;
@@ -516,7 +524,7 @@ class Daemon {
         return;
       }
     }
-    
+
     _lastReconcileAttemptMs = now;
     _reconcileRunning = true;
     try {
@@ -586,7 +594,9 @@ class Daemon {
   }
 
   Future<void> _writeHeartbeat() async {
-    final statusFile = ProjectPaths(Directory(config.rootPath)).daemonStatusFile;
+    final statusFile = ProjectPaths(
+      Directory(config.rootPath),
+    ).daemonStatusFile;
     final payload = <String, Object?>{
       'updatedAtMs': DateTime.now().millisecondsSinceEpoch,
       'lastProcessedMs': _lastProcessedMs,

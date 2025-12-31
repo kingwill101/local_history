@@ -31,7 +31,11 @@ class HistoryCommand extends BaseCommand {
     final limitValue = argResults!['limit'] as String?;
     final limit = limitValue == null ? null : int.tryParse(limitValue);
 
-    final db = await HistoryDb.open(paths.dbFile.path);
+    final config = await loadConfig();
+    final db = await HistoryDb.open(
+      paths.dbFile.path,
+      branchContextProvider: branchContextProvider(config),
+    );
     final history = await db.listHistory(relativePath, limit: limit);
     await db.close();
 

@@ -37,7 +37,11 @@ class RestoreCommand extends BaseCommand {
       throw usageException('Missing <rev_id>');
     }
     final revId = parseInt(argResults!.rest.first, 'rev_id');
-    final db = await HistoryDb.open(paths.dbFile.path);
+    final config = await loadConfig();
+    final db = await HistoryDb.open(
+      paths.dbFile.path,
+      branchContextProvider: branchContextProvider(config),
+    );
     final revision = await db.getRevision(revId);
     await db.close();
 
@@ -76,15 +80,21 @@ class RestoreCommand extends BaseCommand {
       return;
     }
 
-    final config = await loadConfig();
     final stat = await file.stat();
-    final restoreDb = await HistoryDb.open(paths.dbFile.path);
+    final restoreDb = await HistoryDb.open(
+      paths.dbFile.path,
+      branchContextProvider: branchContextProvider(config),
+    );
     try {
       final fileId = await restoreDb.getFileId(revision.path);
       final changeType = fileId == null ? 'create' : 'modify';
       // Recompute contentText using current config rules instead of reusing
       // the historical value, so indexing respects current text extensions
-      final contentText = _maybeDecodeText(revision.path, revision.content, config);
+      final contentText = _maybeDecodeText(
+        revision.path,
+        revision.content,
+        config,
+      );
       await restoreDb.insertRevision(
         path: revision.path,
         timestampMs: DateTime.now().millisecondsSinceEpoch,

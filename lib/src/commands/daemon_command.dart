@@ -82,10 +82,7 @@ class DaemonCommand extends BaseCommand {
     final logger = Logger()
       ..addChannel(
         'file',
-        DailyFileLogDriver(
-          '${logsDir.path}/daemon',
-          retentionDays: 7,
-        ),
+        DailyFileLogDriver('${logsDir.path}/daemon', retentionDays: 7),
         formatter: PlainTextLogFormatter(),
       )
       ..addChannel(
@@ -98,10 +95,7 @@ class DaemonCommand extends BaseCommand {
       dbLogger = Logger(defaultChannelEnabled: false)
         ..addChannel(
           'file',
-          DailyFileLogDriver(
-            '${logsDir.path}/db',
-            retentionDays: 7,
-          ),
+          DailyFileLogDriver('${logsDir.path}/db', retentionDays: 7),
           formatter: PlainTextLogFormatter(),
         )
         ..withContext({'component': 'database'});
@@ -112,6 +106,7 @@ class DaemonCommand extends BaseCommand {
         paths.dbFile.path,
         enableLogging: dbLogging,
         logger: dbLogger,
+        branchContextProvider: branchContextProvider(config),
       );
       logger.info('Database opened', Context({'path': paths.dbFile.path}));
 

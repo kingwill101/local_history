@@ -68,7 +68,11 @@ class SnapshotRestoreCommand extends BaseCommand {
       throw usageException('Missing snapshot id or label.');
     }
 
-    final db = await HistoryDb.open(paths.dbFile.path);
+    final config = await loadConfig();
+    final db = await HistoryDb.open(
+      paths.dbFile.path,
+      branchContextProvider: branchContextProvider(config),
+    );
     final snapshot = snapshotId != null
         ? await db.getSnapshotById(snapshotId)
         : await db.getSnapshotByLabel(label!);
@@ -95,7 +99,6 @@ class SnapshotRestoreCommand extends BaseCommand {
     var extraFiles = <String>[];
     var deleteConfirmed = deleteExtra;
     if (deleteExtra) {
-      final config = await loadConfig();
       extraFiles = await _listIncludedFiles(config);
       extraFiles.removeWhere(snapshotPaths.contains);
     }

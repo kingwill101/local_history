@@ -24,7 +24,17 @@ class LabelCommand extends BaseCommand {
 
     final revId = parseInt(argResults!.rest.first, 'rev_id');
     final label = argResults!.rest.sublist(1).join(' ');
-    final db = await HistoryDb.open(paths.dbFile.path);
+    final config = await loadConfig();
+    final db = await HistoryDb.open(
+      paths.dbFile.path,
+      branchContextProvider: branchContextProvider(config),
+    );
+    final revision = await db.getRevision(revId);
+    if (revision == null) {
+      await db.close();
+      io.error('Revision $revId not found');
+      return;
+    }
     await db.labelRevision(revId, label);
     await db.close();
     io.success('Labeled revision $revId');

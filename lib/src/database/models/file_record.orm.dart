@@ -26,7 +26,19 @@ const FieldDefinition _$FileRecordPathField = FieldDefinition(
   resolvedType: 'String',
   isPrimaryKey: false,
   isNullable: false,
-  isUnique: true,
+  isUnique: false,
+  isIndexed: true,
+  autoIncrement: false,
+);
+
+const FieldDefinition _$FileRecordBranchContextField = FieldDefinition(
+  name: 'branchContext',
+  columnName: 'branch_context',
+  dartType: 'String',
+  resolvedType: 'String',
+  isPrimaryKey: false,
+  isNullable: false,
+  isUnique: false,
   isIndexed: true,
   autoIncrement: false,
 );
@@ -75,6 +87,10 @@ Map<String, Object?> _encodeFileRecordUntracked(
   return <String, Object?>{
     'file_id': registry.encodeField(_$FileRecordFileIdField, m.fileId),
     'path': registry.encodeField(_$FileRecordPathField, m.path),
+    'branch_context': registry.encodeField(
+      _$FileRecordBranchContextField,
+      m.branchContext,
+    ),
     'last_checksum': registry.encodeField(
       _$FileRecordLastChecksumField,
       m.lastChecksum,
@@ -96,6 +112,7 @@ final ModelDefinition<$FileRecord> _$FileRecordDefinition = ModelDefinition(
   fields: const [
     _$FileRecordFileIdField,
     _$FileRecordPathField,
+    _$FileRecordBranchContextField,
     _$FileRecordLastChecksumField,
     _$FileRecordLastMtimeMsField,
     _$FileRecordLastSizeBytesField,
@@ -178,6 +195,18 @@ class FileRecords {
   /// {@macro ormed.repository}
   static Repository<$FileRecord> repo([String? connection]) =>
       Model.repository<$FileRecord>(connection: connection);
+
+  /// Builds a tracked model from a column/value map.
+  static $FileRecord fromMap(
+    Map<String, Object?> data, {
+    ValueCodecRegistry? registry,
+  }) => _$FileRecordDefinition.fromMap(data, registry: registry);
+
+  /// Converts a tracked model to a column/value map.
+  static Map<String, Object?> toMap(
+    $FileRecord model, {
+    ValueCodecRegistry? registry,
+  }) => _$FileRecordDefinition.toMap(model, registry: registry);
 }
 
 class FileRecordModelFactory {
@@ -222,6 +251,10 @@ class _$FileRecordCodec extends ModelCodec<$FileRecord> {
     return <String, Object?>{
       'file_id': registry.encodeField(_$FileRecordFileIdField, model.fileId),
       'path': registry.encodeField(_$FileRecordPathField, model.path),
+      'branch_context': registry.encodeField(
+        _$FileRecordBranchContextField,
+        model.branchContext,
+      ),
       'last_checksum': registry.encodeField(
         _$FileRecordLastChecksumField,
         model.lastChecksum,
@@ -246,6 +279,12 @@ class _$FileRecordCodec extends ModelCodec<$FileRecord> {
     final String fileRecordPathValue =
         registry.decodeField<String>(_$FileRecordPathField, data['path']) ??
         (throw StateError('Field path on FileRecord cannot be null.'));
+    final String fileRecordBranchContextValue =
+        registry.decodeField<String>(
+          _$FileRecordBranchContextField,
+          data['branch_context'],
+        ) ??
+        (throw StateError('Field branchContext on FileRecord cannot be null.'));
     final List<int>? fileRecordLastChecksumValue = registry
         .decodeField<List<int>?>(
           _$FileRecordLastChecksumField,
@@ -262,6 +301,7 @@ class _$FileRecordCodec extends ModelCodec<$FileRecord> {
     final model = $FileRecord(
       fileId: fileRecordFileIdValue,
       path: fileRecordPathValue,
+      branchContext: fileRecordBranchContextValue,
       lastChecksum: fileRecordLastChecksumValue,
       lastMtimeMs: fileRecordLastMtimeMsValue,
       lastSizeBytes: fileRecordLastSizeBytesValue,
@@ -269,6 +309,7 @@ class _$FileRecordCodec extends ModelCodec<$FileRecord> {
     model._attachOrmRuntimeMetadata({
       'file_id': fileRecordFileIdValue,
       'path': fileRecordPathValue,
+      'branch_context': fileRecordBranchContextValue,
       'last_checksum': fileRecordLastChecksumValue,
       'last_mtime_ms': fileRecordLastMtimeMsValue,
       'last_size_bytes': fileRecordLastSizeBytesValue,
@@ -283,11 +324,13 @@ class _$FileRecordCodec extends ModelCodec<$FileRecord> {
 class FileRecordInsertDto implements InsertDto<$FileRecord> {
   const FileRecordInsertDto({
     this.path,
+    this.branchContext,
     this.lastChecksum,
     this.lastMtimeMs,
     this.lastSizeBytes,
   });
   final String? path;
+  final String? branchContext;
   final List<int>? lastChecksum;
   final int? lastMtimeMs;
   final int? lastSizeBytes;
@@ -296,6 +339,7 @@ class FileRecordInsertDto implements InsertDto<$FileRecord> {
   Map<String, Object?> toMap() {
     return <String, Object?>{
       if (path != null) 'path': path,
+      if (branchContext != null) 'branch_context': branchContext,
       if (lastChecksum != null) 'last_checksum': lastChecksum,
       if (lastMtimeMs != null) 'last_mtime_ms': lastMtimeMs,
       if (lastSizeBytes != null) 'last_size_bytes': lastSizeBytes,
@@ -306,12 +350,16 @@ class FileRecordInsertDto implements InsertDto<$FileRecord> {
       _FileRecordInsertDtoCopyWithSentinel();
   FileRecordInsertDto copyWith({
     Object? path = _copyWithSentinel,
+    Object? branchContext = _copyWithSentinel,
     Object? lastChecksum = _copyWithSentinel,
     Object? lastMtimeMs = _copyWithSentinel,
     Object? lastSizeBytes = _copyWithSentinel,
   }) {
     return FileRecordInsertDto(
       path: identical(path, _copyWithSentinel) ? this.path : path as String?,
+      branchContext: identical(branchContext, _copyWithSentinel)
+          ? this.branchContext
+          : branchContext as String?,
       lastChecksum: identical(lastChecksum, _copyWithSentinel)
           ? this.lastChecksum
           : lastChecksum as List<int>?,
@@ -336,12 +384,14 @@ class FileRecordUpdateDto implements UpdateDto<$FileRecord> {
   const FileRecordUpdateDto({
     this.fileId,
     this.path,
+    this.branchContext,
     this.lastChecksum,
     this.lastMtimeMs,
     this.lastSizeBytes,
   });
   final int? fileId;
   final String? path;
+  final String? branchContext;
   final List<int>? lastChecksum;
   final int? lastMtimeMs;
   final int? lastSizeBytes;
@@ -351,6 +401,7 @@ class FileRecordUpdateDto implements UpdateDto<$FileRecord> {
     return <String, Object?>{
       if (fileId != null) 'file_id': fileId,
       if (path != null) 'path': path,
+      if (branchContext != null) 'branch_context': branchContext,
       if (lastChecksum != null) 'last_checksum': lastChecksum,
       if (lastMtimeMs != null) 'last_mtime_ms': lastMtimeMs,
       if (lastSizeBytes != null) 'last_size_bytes': lastSizeBytes,
@@ -362,6 +413,7 @@ class FileRecordUpdateDto implements UpdateDto<$FileRecord> {
   FileRecordUpdateDto copyWith({
     Object? fileId = _copyWithSentinel,
     Object? path = _copyWithSentinel,
+    Object? branchContext = _copyWithSentinel,
     Object? lastChecksum = _copyWithSentinel,
     Object? lastMtimeMs = _copyWithSentinel,
     Object? lastSizeBytes = _copyWithSentinel,
@@ -371,6 +423,9 @@ class FileRecordUpdateDto implements UpdateDto<$FileRecord> {
           ? this.fileId
           : fileId as int?,
       path: identical(path, _copyWithSentinel) ? this.path : path as String?,
+      branchContext: identical(branchContext, _copyWithSentinel)
+          ? this.branchContext
+          : branchContext as String?,
       lastChecksum: identical(lastChecksum, _copyWithSentinel)
           ? this.lastChecksum
           : lastChecksum as List<int>?,
@@ -395,6 +450,7 @@ class FileRecordPartial implements PartialEntity<$FileRecord> {
   const FileRecordPartial({
     this.fileId,
     this.path,
+    this.branchContext,
     this.lastChecksum,
     this.lastMtimeMs,
     this.lastSizeBytes,
@@ -408,6 +464,7 @@ class FileRecordPartial implements PartialEntity<$FileRecord> {
     return FileRecordPartial(
       fileId: row['file_id'] as int?,
       path: row['path'] as String?,
+      branchContext: row['branch_context'] as String?,
       lastChecksum: row['last_checksum'] as List<int>?,
       lastMtimeMs: row['last_mtime_ms'] as int?,
       lastSizeBytes: row['last_size_bytes'] as int?,
@@ -416,6 +473,7 @@ class FileRecordPartial implements PartialEntity<$FileRecord> {
 
   final int? fileId;
   final String? path;
+  final String? branchContext;
   final List<int>? lastChecksum;
   final int? lastMtimeMs;
   final int? lastSizeBytes;
@@ -427,9 +485,14 @@ class FileRecordPartial implements PartialEntity<$FileRecord> {
     if (pathValue == null) {
       throw StateError('Missing required field: path');
     }
+    final String? branchContextValue = branchContext;
+    if (branchContextValue == null) {
+      throw StateError('Missing required field: branchContext');
+    }
     return $FileRecord(
       fileId: fileId,
       path: pathValue,
+      branchContext: branchContextValue,
       lastChecksum: lastChecksum,
       lastMtimeMs: lastMtimeMs,
       lastSizeBytes: lastSizeBytes,
@@ -441,6 +504,7 @@ class FileRecordPartial implements PartialEntity<$FileRecord> {
     return {
       if (fileId != null) 'file_id': fileId,
       if (path != null) 'path': path,
+      if (branchContext != null) 'branch_context': branchContext,
       if (lastChecksum != null) 'last_checksum': lastChecksum,
       if (lastMtimeMs != null) 'last_mtime_ms': lastMtimeMs,
       if (lastSizeBytes != null) 'last_size_bytes': lastSizeBytes,
@@ -452,6 +516,7 @@ class FileRecordPartial implements PartialEntity<$FileRecord> {
   FileRecordPartial copyWith({
     Object? fileId = _copyWithSentinel,
     Object? path = _copyWithSentinel,
+    Object? branchContext = _copyWithSentinel,
     Object? lastChecksum = _copyWithSentinel,
     Object? lastMtimeMs = _copyWithSentinel,
     Object? lastSizeBytes = _copyWithSentinel,
@@ -461,6 +526,9 @@ class FileRecordPartial implements PartialEntity<$FileRecord> {
           ? this.fileId
           : fileId as int?,
       path: identical(path, _copyWithSentinel) ? this.path : path as String?,
+      branchContext: identical(branchContext, _copyWithSentinel)
+          ? this.branchContext
+          : branchContext as String?,
       lastChecksum: identical(lastChecksum, _copyWithSentinel)
           ? this.lastChecksum
           : lastChecksum as List<int>?,
@@ -491,12 +559,14 @@ class $FileRecord extends FileRecord with ModelAttributes implements OrmEntity {
   $FileRecord({
     int? fileId,
     required String path,
+    required String branchContext,
     List<int>? lastChecksum,
     int? lastMtimeMs,
     int? lastSizeBytes,
-  }) : super.new(
+  }) : super(
          fileId: fileId,
          path: path,
+         branchContext: branchContext,
          lastChecksum: lastChecksum,
          lastMtimeMs: lastMtimeMs,
          lastSizeBytes: lastSizeBytes,
@@ -504,6 +574,7 @@ class $FileRecord extends FileRecord with ModelAttributes implements OrmEntity {
     _attachOrmRuntimeMetadata({
       'file_id': fileId,
       'path': path,
+      'branch_context': branchContext,
       'last_checksum': lastChecksum,
       'last_mtime_ms': lastMtimeMs,
       'last_size_bytes': lastSizeBytes,
@@ -515,6 +586,7 @@ class $FileRecord extends FileRecord with ModelAttributes implements OrmEntity {
     return $FileRecord(
       fileId: model.fileId,
       path: model.path,
+      branchContext: model.branchContext,
       lastChecksum: model.lastChecksum,
       lastMtimeMs: model.lastMtimeMs,
       lastSizeBytes: model.lastSizeBytes,
@@ -524,6 +596,7 @@ class $FileRecord extends FileRecord with ModelAttributes implements OrmEntity {
   $FileRecord copyWith({
     int? fileId,
     String? path,
+    String? branchContext,
     List<int>? lastChecksum,
     int? lastMtimeMs,
     int? lastSizeBytes,
@@ -531,11 +604,22 @@ class $FileRecord extends FileRecord with ModelAttributes implements OrmEntity {
     return $FileRecord(
       fileId: fileId ?? this.fileId,
       path: path ?? this.path,
+      branchContext: branchContext ?? this.branchContext,
       lastChecksum: lastChecksum ?? this.lastChecksum,
       lastMtimeMs: lastMtimeMs ?? this.lastMtimeMs,
       lastSizeBytes: lastSizeBytes ?? this.lastSizeBytes,
     );
   }
+
+  /// Builds a tracked model from a column/value map.
+  static $FileRecord fromMap(
+    Map<String, Object?> data, {
+    ValueCodecRegistry? registry,
+  }) => _$FileRecordDefinition.fromMap(data, registry: registry);
+
+  /// Converts this tracked model to a column/value map.
+  Map<String, Object?> toMap({ValueCodecRegistry? registry}) =>
+      _$FileRecordDefinition.toMap(this, registry: registry);
 
   /// Tracked getter for [fileId].
   @override
@@ -550,6 +634,14 @@ class $FileRecord extends FileRecord with ModelAttributes implements OrmEntity {
 
   /// Tracked setter for [path].
   set path(String value) => setAttribute('path', value);
+
+  /// Tracked getter for [branchContext].
+  @override
+  String get branchContext =>
+      getAttribute<String>('branch_context') ?? super.branchContext;
+
+  /// Tracked setter for [branchContext].
+  set branchContext(String value) => setAttribute('branch_context', value);
 
   /// Tracked getter for [lastChecksum].
   @override
@@ -581,7 +673,51 @@ class $FileRecord extends FileRecord with ModelAttributes implements OrmEntity {
   }
 }
 
+class _FileRecordCopyWithSentinel {
+  const _FileRecordCopyWithSentinel();
+}
+
 extension FileRecordOrmExtension on FileRecord {
+  static const _FileRecordCopyWithSentinel _copyWithSentinel =
+      _FileRecordCopyWithSentinel();
+  FileRecord copyWith({
+    Object? fileId = _copyWithSentinel,
+    Object? path = _copyWithSentinel,
+    Object? branchContext = _copyWithSentinel,
+    Object? lastChecksum = _copyWithSentinel,
+    Object? lastMtimeMs = _copyWithSentinel,
+    Object? lastSizeBytes = _copyWithSentinel,
+  }) {
+    return FileRecord(
+      fileId: identical(fileId, _copyWithSentinel)
+          ? this.fileId
+          : fileId as int?,
+      path: identical(path, _copyWithSentinel) ? this.path : path as String,
+      branchContext: identical(branchContext, _copyWithSentinel)
+          ? this.branchContext
+          : branchContext as String,
+      lastChecksum: identical(lastChecksum, _copyWithSentinel)
+          ? this.lastChecksum
+          : lastChecksum as List<int>?,
+      lastMtimeMs: identical(lastMtimeMs, _copyWithSentinel)
+          ? this.lastMtimeMs
+          : lastMtimeMs as int?,
+      lastSizeBytes: identical(lastSizeBytes, _copyWithSentinel)
+          ? this.lastSizeBytes
+          : lastSizeBytes as int?,
+    );
+  }
+
+  /// Converts this model to a column/value map.
+  Map<String, Object?> toMap({ValueCodecRegistry? registry}) =>
+      _$FileRecordDefinition.toMap(this, registry: registry);
+
+  /// Builds a model from a column/value map.
+  static FileRecord fromMap(
+    Map<String, Object?> data, {
+    ValueCodecRegistry? registry,
+  }) => _$FileRecordDefinition.fromMap(data, registry: registry);
+
   /// The Type of the generated ORM-managed model class.
   /// Use this when you need to specify the tracked model type explicitly,
   /// for example in generic type parameters.
@@ -593,6 +729,21 @@ extension FileRecordOrmExtension on FileRecord {
   $FileRecord toTracked() {
     return $FileRecord.fromModel(this);
   }
+}
+
+extension FileRecordPredicateFields on PredicateBuilder<FileRecord> {
+  PredicateField<FileRecord, int?> get fileId =>
+      PredicateField<FileRecord, int?>(this, 'fileId');
+  PredicateField<FileRecord, String> get path =>
+      PredicateField<FileRecord, String>(this, 'path');
+  PredicateField<FileRecord, String> get branchContext =>
+      PredicateField<FileRecord, String>(this, 'branchContext');
+  PredicateField<FileRecord, List<int>?> get lastChecksum =>
+      PredicateField<FileRecord, List<int>?>(this, 'lastChecksum');
+  PredicateField<FileRecord, int?> get lastMtimeMs =>
+      PredicateField<FileRecord, int?>(this, 'lastMtimeMs');
+  PredicateField<FileRecord, int?> get lastSizeBytes =>
+      PredicateField<FileRecord, int?>(this, 'lastSizeBytes');
 }
 
 void registerFileRecordEventHandlers(EventBus bus) {

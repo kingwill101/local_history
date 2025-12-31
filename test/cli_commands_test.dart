@@ -157,6 +157,7 @@ void main() {
       version: config.version,
       watch: config.watch,
       limits: config.limits,
+      gitContext: config.gitContext,
       textExtensions: config.textExtensions,
       debounceMs: config.debounceMs,
       snapshotConcurrency: 1,

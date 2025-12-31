@@ -243,6 +243,18 @@ class RevisionRecords {
   /// {@macro ormed.repository}
   static Repository<$RevisionRecord> repo([String? connection]) =>
       Model.repository<$RevisionRecord>(connection: connection);
+
+  /// Builds a tracked model from a column/value map.
+  static $RevisionRecord fromMap(
+    Map<String, Object?> data, {
+    ValueCodecRegistry? registry,
+  }) => _$RevisionRecordDefinition.fromMap(data, registry: registry);
+
+  /// Converts a tracked model to a column/value map.
+  static Map<String, Object?> toMap(
+    $RevisionRecord model, {
+    ValueCodecRegistry? registry,
+  }) => _$RevisionRecordDefinition.toMap(model, registry: registry);
 }
 
 class RevisionRecordModelFactory {
@@ -733,7 +745,7 @@ class $RevisionRecord extends RevisionRecord
     List<int>? checksum,
     String? contentText,
     String? contentTextRaw,
-  }) : super.new(
+  }) : super(
          revId: revId,
          fileId: fileId,
          timestampMs: timestampMs,
@@ -795,6 +807,16 @@ class $RevisionRecord extends RevisionRecord
       contentTextRaw: contentTextRaw ?? this.contentTextRaw,
     );
   }
+
+  /// Builds a tracked model from a column/value map.
+  static $RevisionRecord fromMap(
+    Map<String, Object?> data, {
+    ValueCodecRegistry? registry,
+  }) => _$RevisionRecordDefinition.fromMap(data, registry: registry);
+
+  /// Converts this tracked model to a column/value map.
+  Map<String, Object?> toMap({ValueCodecRegistry? registry}) =>
+      _$RevisionRecordDefinition.toMap(this, registry: registry);
 
   /// Tracked getter for [revId].
   @override
@@ -869,7 +891,63 @@ class $RevisionRecord extends RevisionRecord
   }
 }
 
+class _RevisionRecordCopyWithSentinel {
+  const _RevisionRecordCopyWithSentinel();
+}
+
 extension RevisionRecordOrmExtension on RevisionRecord {
+  static const _RevisionRecordCopyWithSentinel _copyWithSentinel =
+      _RevisionRecordCopyWithSentinel();
+  RevisionRecord copyWith({
+    Object? revId = _copyWithSentinel,
+    Object? fileId = _copyWithSentinel,
+    Object? timestampMs = _copyWithSentinel,
+    Object? changeType = _copyWithSentinel,
+    Object? label = _copyWithSentinel,
+    Object? content = _copyWithSentinel,
+    Object? checksum = _copyWithSentinel,
+    Object? contentText = _copyWithSentinel,
+    Object? contentTextRaw = _copyWithSentinel,
+  }) {
+    return RevisionRecord(
+      revId: identical(revId, _copyWithSentinel) ? this.revId : revId as int?,
+      fileId: identical(fileId, _copyWithSentinel)
+          ? this.fileId
+          : fileId as int,
+      timestampMs: identical(timestampMs, _copyWithSentinel)
+          ? this.timestampMs
+          : timestampMs as int,
+      changeType: identical(changeType, _copyWithSentinel)
+          ? this.changeType
+          : changeType as String,
+      label: identical(label, _copyWithSentinel)
+          ? this.label
+          : label as String?,
+      content: identical(content, _copyWithSentinel)
+          ? this.content
+          : content as List<int>,
+      checksum: identical(checksum, _copyWithSentinel)
+          ? this.checksum
+          : checksum as List<int>?,
+      contentText: identical(contentText, _copyWithSentinel)
+          ? this.contentText
+          : contentText as String?,
+      contentTextRaw: identical(contentTextRaw, _copyWithSentinel)
+          ? this.contentTextRaw
+          : contentTextRaw as String?,
+    );
+  }
+
+  /// Converts this model to a column/value map.
+  Map<String, Object?> toMap({ValueCodecRegistry? registry}) =>
+      _$RevisionRecordDefinition.toMap(this, registry: registry);
+
+  /// Builds a model from a column/value map.
+  static RevisionRecord fromMap(
+    Map<String, Object?> data, {
+    ValueCodecRegistry? registry,
+  }) => _$RevisionRecordDefinition.fromMap(data, registry: registry);
+
   /// The Type of the generated ORM-managed model class.
   /// Use this when you need to specify the tracked model type explicitly,
   /// for example in generic type parameters.
@@ -881,6 +959,27 @@ extension RevisionRecordOrmExtension on RevisionRecord {
   $RevisionRecord toTracked() {
     return $RevisionRecord.fromModel(this);
   }
+}
+
+extension RevisionRecordPredicateFields on PredicateBuilder<RevisionRecord> {
+  PredicateField<RevisionRecord, int?> get revId =>
+      PredicateField<RevisionRecord, int?>(this, 'revId');
+  PredicateField<RevisionRecord, int> get fileId =>
+      PredicateField<RevisionRecord, int>(this, 'fileId');
+  PredicateField<RevisionRecord, int> get timestampMs =>
+      PredicateField<RevisionRecord, int>(this, 'timestampMs');
+  PredicateField<RevisionRecord, String> get changeType =>
+      PredicateField<RevisionRecord, String>(this, 'changeType');
+  PredicateField<RevisionRecord, String?> get label =>
+      PredicateField<RevisionRecord, String?>(this, 'label');
+  PredicateField<RevisionRecord, List<int>> get content =>
+      PredicateField<RevisionRecord, List<int>>(this, 'content');
+  PredicateField<RevisionRecord, List<int>?> get checksum =>
+      PredicateField<RevisionRecord, List<int>?>(this, 'checksum');
+  PredicateField<RevisionRecord, String?> get contentText =>
+      PredicateField<RevisionRecord, String?>(this, 'contentText');
+  PredicateField<RevisionRecord, String?> get contentTextRaw =>
+      PredicateField<RevisionRecord, String?>(this, 'contentTextRaw');
 }
 
 void registerRevisionRecordEventHandlers(EventBus bus) {

@@ -37,7 +37,10 @@ class GcCommand extends BaseCommand {
         : int.tryParse(overrideMaxRevs) ?? config.limits.maxRevisionsPerFile;
     final vacuum = argResults!['vacuum'] as bool;
 
-    final db = await HistoryDb.open(paths.dbFile.path);
+    final db = await HistoryDb.open(
+      paths.dbFile.path,
+      branchContextProvider: branchContextProvider(config),
+    );
     await db.gc(maxDays: maxDays, maxRevisionsPerFile: maxRevisions);
     if (vacuum) {
       await db.vacuum();

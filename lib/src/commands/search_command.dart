@@ -38,7 +38,11 @@ class SearchCommand extends BaseCommand {
     final limitRaw = argResults!['limit'] as String?;
     final limit = limitRaw == null ? 200 : int.tryParse(limitRaw) ?? 200;
 
-    final db = await HistoryDb.open(paths.dbFile.path);
+    final config = await loadConfig();
+    final db = await HistoryDb.open(
+      paths.dbFile.path,
+      branchContextProvider: branchContextProvider(config),
+    );
     final results = await db.search(
       query: query,
       path: fileFilter == null ? null : resolvePath(fileFilter),

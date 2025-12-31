@@ -146,6 +146,18 @@ class SnapshotRevisionRecords {
   /// {@macro ormed.repository}
   static Repository<$SnapshotRevisionRecord> repo([String? connection]) =>
       Model.repository<$SnapshotRevisionRecord>(connection: connection);
+
+  /// Builds a tracked model from a column/value map.
+  static $SnapshotRevisionRecord fromMap(
+    Map<String, Object?> data, {
+    ValueCodecRegistry? registry,
+  }) => _$SnapshotRevisionRecordDefinition.fromMap(data, registry: registry);
+
+  /// Converts a tracked model to a column/value map.
+  static Map<String, Object?> toMap(
+    $SnapshotRevisionRecord model, {
+    ValueCodecRegistry? registry,
+  }) => _$SnapshotRevisionRecordDefinition.toMap(model, registry: registry);
 }
 
 class SnapshotRevisionRecordModelFactory {
@@ -387,7 +399,7 @@ class $SnapshotRevisionRecord extends SnapshotRevisionRecord
     implements OrmEntity {
   /// Internal constructor for [$SnapshotRevisionRecord].
   $SnapshotRevisionRecord({required int snapshotId, required int revId})
-    : super.new(snapshotId: snapshotId, revId: revId) {
+    : super(snapshotId: snapshotId, revId: revId) {
     _attachOrmRuntimeMetadata({'snapshot_id': snapshotId, 'rev_id': revId});
   }
 
@@ -405,6 +417,16 @@ class $SnapshotRevisionRecord extends SnapshotRevisionRecord
       revId: revId ?? this.revId,
     );
   }
+
+  /// Builds a tracked model from a column/value map.
+  static $SnapshotRevisionRecord fromMap(
+    Map<String, Object?> data, {
+    ValueCodecRegistry? registry,
+  }) => _$SnapshotRevisionRecordDefinition.fromMap(data, registry: registry);
+
+  /// Converts this tracked model to a column/value map.
+  Map<String, Object?> toMap({ValueCodecRegistry? registry}) =>
+      _$SnapshotRevisionRecordDefinition.toMap(this, registry: registry);
 
   /// Tracked getter for [snapshotId].
   @override
@@ -426,7 +448,35 @@ class $SnapshotRevisionRecord extends SnapshotRevisionRecord
   }
 }
 
+class _SnapshotRevisionRecordCopyWithSentinel {
+  const _SnapshotRevisionRecordCopyWithSentinel();
+}
+
 extension SnapshotRevisionRecordOrmExtension on SnapshotRevisionRecord {
+  static const _SnapshotRevisionRecordCopyWithSentinel _copyWithSentinel =
+      _SnapshotRevisionRecordCopyWithSentinel();
+  SnapshotRevisionRecord copyWith({
+    Object? snapshotId = _copyWithSentinel,
+    Object? revId = _copyWithSentinel,
+  }) {
+    return SnapshotRevisionRecord(
+      snapshotId: identical(snapshotId, _copyWithSentinel)
+          ? this.snapshotId
+          : snapshotId as int,
+      revId: identical(revId, _copyWithSentinel) ? this.revId : revId as int,
+    );
+  }
+
+  /// Converts this model to a column/value map.
+  Map<String, Object?> toMap({ValueCodecRegistry? registry}) =>
+      _$SnapshotRevisionRecordDefinition.toMap(this, registry: registry);
+
+  /// Builds a model from a column/value map.
+  static SnapshotRevisionRecord fromMap(
+    Map<String, Object?> data, {
+    ValueCodecRegistry? registry,
+  }) => _$SnapshotRevisionRecordDefinition.fromMap(data, registry: registry);
+
   /// The Type of the generated ORM-managed model class.
   /// Use this when you need to specify the tracked model type explicitly,
   /// for example in generic type parameters.
@@ -438,6 +488,14 @@ extension SnapshotRevisionRecordOrmExtension on SnapshotRevisionRecord {
   $SnapshotRevisionRecord toTracked() {
     return $SnapshotRevisionRecord.fromModel(this);
   }
+}
+
+extension SnapshotRevisionRecordPredicateFields
+    on PredicateBuilder<SnapshotRevisionRecord> {
+  PredicateField<SnapshotRevisionRecord, int> get snapshotId =>
+      PredicateField<SnapshotRevisionRecord, int>(this, 'snapshotId');
+  PredicateField<SnapshotRevisionRecord, int> get revId =>
+      PredicateField<SnapshotRevisionRecord, int>(this, 'revId');
 }
 
 void registerSnapshotRevisionRecordEventHandlers(EventBus bus) {

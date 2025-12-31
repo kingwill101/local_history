@@ -1,5 +1,6 @@
 /// CLI command that reports daemon and database status.
 library;
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -42,7 +43,11 @@ class StatusCommand extends BaseCommand {
     int? latestTimestamp;
     try {
       if (await paths.dbFile.exists()) {
-        final db = await HistoryDb.open(paths.dbFile.path);
+        final config = await loadConfig();
+        final db = await HistoryDb.open(
+          paths.dbFile.path,
+          branchContextProvider: branchContextProvider(config),
+        );
         latestTimestamp = await db.getLatestRevisionTimestampMs();
         await db.close();
       }
@@ -51,8 +56,9 @@ class StatusCommand extends BaseCommand {
       exitCode = 1;
       return;
     }
-    final latestLabel =
-        latestTimestamp == null ? 'none' : formatTimestamp(latestTimestamp);
+    final latestLabel = latestTimestamp == null
+        ? 'none'
+        : formatTimestamp(latestTimestamp);
     io.info('Last revision: $latestLabel');
 
     await _reportHeartbeat();
@@ -91,10 +97,12 @@ class StatusCommand extends BaseCommand {
       final lastProcessed = _readInt(data['lastProcessedMs']);
       final updatedAt = _readInt(data['updatedAtMs']);
       final queueDepth = _readInt(data['queueDepth']);
-      final processedLabel =
-          lastProcessed == null ? 'none' : formatTimestamp(lastProcessed);
-      final updatedLabel =
-          updatedAt == null ? 'unknown' : formatTimestamp(updatedAt);
+      final processedLabel = lastProcessed == null
+          ? 'none'
+          : formatTimestamp(lastProcessed);
+      final updatedLabel = updatedAt == null
+          ? 'unknown'
+          : formatTimestamp(updatedAt);
       final queueLabel = queueDepth?.toString() ?? 'unknown';
       io.info(
         'Heartbeat: last processed $processedLabel, '

@@ -12,6 +12,7 @@ class FileRecord extends Model<FileRecord> {
   const FileRecord({
     this.fileId,
     required this.path,
+    required this.branchContext,
     this.lastChecksum,
     this.lastMtimeMs,
     this.lastSizeBytes,
@@ -22,8 +23,12 @@ class FileRecord extends Model<FileRecord> {
   final int? fileId;
 
   /// Project-relative file path.
-  @OrmField(columnName: 'path', isUnique: true, isIndexed: true)
+  @OrmField(columnName: 'path', isIndexed: true)
   final String path;
+
+  /// Branch context identifier for the file record.
+  @OrmField(columnName: 'branch_context', isIndexed: true)
+  final String branchContext;
 
   /// Last stored content checksum for the file.
   @OrmField(columnName: 'last_checksum')

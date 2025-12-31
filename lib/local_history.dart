@@ -15,5 +15,10 @@ export 'src/history_models.dart'
         VerifyStatus,
         VerifySummary;
 export 'src/project_config.dart'
-    show IndexingMode, LimitsConfig, ProjectConfig, WatchConfig;
+    show
+        GitContextConfig,
+        IndexingMode,
+        LimitsConfig,
+        ProjectConfig,
+        WatchConfig;
 export 'src/project_paths.dart' show ProjectPaths;

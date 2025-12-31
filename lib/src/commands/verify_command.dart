@@ -40,7 +40,11 @@ class VerifyCommand extends BaseCommand {
       throw usageException('Unexpected arguments with --all.');
     }
 
-    final db = await HistoryDb.open(paths.dbFile.path);
+    final config = await loadConfig();
+    final db = await HistoryDb.open(
+      paths.dbFile.path,
+      branchContextProvider: branchContextProvider(config),
+    );
     if (verifyAll) {
       final summary = await db.verifyAllRevisions();
       await db.close();

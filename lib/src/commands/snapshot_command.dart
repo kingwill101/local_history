@@ -73,7 +73,10 @@ class SnapshotCommand extends BaseCommand {
         ? false
         : config.snapshotIncremental;
     final deferIndexing = config.indexingMode == IndexingMode.deferred;
-    final db = await HistoryDb.open(paths.dbFile.path);
+    final db = await HistoryDb.open(
+      paths.dbFile.path,
+      branchContextProvider: branchContextProvider(config),
+    );
     late final SnapshotInfo snapshot;
     try {
       snapshot = await db.createSnapshot(label: label);

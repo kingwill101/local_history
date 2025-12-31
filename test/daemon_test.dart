@@ -141,6 +141,7 @@ void main() {
       version: baseConfig.version,
       watch: baseConfig.watch,
       limits: baseConfig.limits,
+      gitContext: baseConfig.gitContext,
       textExtensions: baseConfig.textExtensions,
       debounceMs: baseConfig.debounceMs,
       snapshotConcurrency: baseConfig.snapshotConcurrency,
@@ -204,6 +205,7 @@ void main() {
         maxDays: 30,
         maxFileSizeMb: 5,
       ),
+      gitContext: ProjectConfig.defaultGitContext,
       textExtensions: const ['.dart', '.js', '.ts', '.json', '.yaml', '.md'],
       debounceMs: ProjectConfig.defaultDebounceMs,
       snapshotConcurrency: 2,
@@ -247,6 +249,7 @@ void main() {
         exclude: const ['.git/**', '.lh/**', 'build/**'],
       ),
       limits: initial.limits,
+      gitContext: initial.gitContext,
       textExtensions: [...initial.textExtensions, '.txt'],
       debounceMs: initial.debounceMs,
       snapshotConcurrency: 3,
@@ -323,6 +326,7 @@ void main() {
       version: config.version,
       watch: config.watch,
       limits: config.limits,
+      gitContext: config.gitContext,
       textExtensions: config.textExtensions,
       debounceMs: config.debounceMs,
       snapshotConcurrency: config.snapshotConcurrency,
@@ -369,6 +373,7 @@ void main() {
       version: baseConfig.version,
       watch: baseConfig.watch,
       limits: baseConfig.limits,
+      gitContext: baseConfig.gitContext,
       textExtensions: baseConfig.textExtensions,
       debounceMs: baseConfig.debounceMs,
       snapshotConcurrency: baseConfig.snapshotConcurrency,
@@ -422,6 +427,7 @@ void main() {
       version: baseConfig.version,
       watch: baseConfig.watch,
       limits: baseConfig.limits,
+      gitContext: baseConfig.gitContext,
       textExtensions: baseConfig.textExtensions,
       debounceMs: baseConfig.debounceMs,
       snapshotConcurrency: baseConfig.snapshotConcurrency,
@@ -484,6 +490,11 @@ void main() {
         maxDays: 30,
         maxFileSizeMb: 5,
       ),
+      gitContext: const GitContextConfig(
+        enabled: true,
+        nonGitFallback: 'nogit',
+        detachedHeadFallback: 'detached',
+      ),
       textExtensions: const ['.dart'],
       debounceMs: ProjectConfig.defaultDebounceMs,
       snapshotConcurrency: 2,
@@ -507,6 +518,9 @@ void main() {
     expect(loaded.reconcileIntervalSeconds, 3600);
     expect(loaded.daemonWorkerConcurrency, 4);
     expect(loaded.daemonInitialSnapshot, true);
+    expect(loaded.gitContext.enabled, true);
+    expect(loaded.gitContext.nonGitFallback, 'nogit');
+    expect(loaded.gitContext.detachedHeadFallback, 'detached');
   });
 
   test('daemon reconciliation prevents starvation under churn', () async {
@@ -517,6 +531,7 @@ void main() {
       version: baseConfig.version,
       watch: baseConfig.watch,
       limits: baseConfig.limits,
+      gitContext: baseConfig.gitContext,
       textExtensions: baseConfig.textExtensions,
       debounceMs: baseConfig.debounceMs,
       snapshotConcurrency: baseConfig.snapshotConcurrency,
@@ -529,7 +544,7 @@ void main() {
       indexingMode: baseConfig.indexingMode,
       ftsBatchSize: baseConfig.ftsBatchSize,
     );
-    
+
     final dbPath = p.join(dir.path, '.lh', 'history.db');
     final db = await HistoryDb.open(dbPath, createIfMissing: true);
     final daemon = Daemon(
@@ -570,6 +585,7 @@ void main() {
       version: baseConfig.version,
       watch: baseConfig.watch,
       limits: baseConfig.limits,
+      gitContext: baseConfig.gitContext,
       textExtensions: baseConfig.textExtensions,
       debounceMs: baseConfig.debounceMs,
       snapshotConcurrency: baseConfig.snapshotConcurrency,
@@ -597,9 +613,7 @@ void main() {
     await file.parent.create(recursive: true);
     await file.writeAsString('v1');
 
-    controller.add(
-      FsEvent(type: FsEventType.create, relativePath: 'test.txt'),
-    );
+    controller.add(FsEvent(type: FsEventType.create, relativePath: 'test.txt'));
     await Future.delayed(const Duration(milliseconds: 50));
 
     final history1 = await db.listHistory('test.txt');
@@ -623,10 +637,7 @@ void main() {
     );
 
     final controller = StreamController<FsEvent>();
-    final runFuture = daemon.run(
-      events: controller.stream,
-      maxEvents: 150,
-    );
+    final runFuture = daemon.run(events: controller.stream, maxEvents: 150);
 
     final file = File(p.join(dir.path, 'burst', 'file.txt'));
     await file.parent.create(recursive: true);
@@ -646,4 +657,3 @@ void main() {
     await db.close();
   });
 }
-

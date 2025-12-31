@@ -46,7 +46,11 @@ class DiffCommand extends BaseCommand {
         ? 3
         : parseInt(contextRaw, 'context').clamp(0, 1000);
     final allowCrossFile = argResults!['allow-cross-file'] as bool;
-    final db = await HistoryDb.open(paths.dbFile.path);
+    final config = await loadConfig();
+    final db = await HistoryDb.open(
+      paths.dbFile.path,
+      branchContextProvider: branchContextProvider(config),
+    );
     final a = await db.getRevision(revA);
     final b = await db.getRevision(revB);
     await db.close();

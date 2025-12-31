@@ -49,6 +49,7 @@ void main() {
         maxDays: 30,
         maxFileSizeMb: 5,
       ),
+      gitContext: ProjectConfig.defaultGitContext,
       textExtensions: const ['dart', '.MD'],
       debounceMs: 250,
       snapshotConcurrency: 2,

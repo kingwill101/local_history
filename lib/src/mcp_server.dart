@@ -9,7 +9,9 @@ import 'package:dart_mcp/server.dart';
 import 'diff.dart';
 import 'history_db.dart';
 import 'history_models.dart';
+import 'git_context.dart';
 import 'path_utils.dart';
+import 'project_config.dart';
 import 'project_paths.dart';
 
 /// MCP server that exposes Local History read-only tools over stdio.
@@ -370,7 +372,15 @@ class LocalHistoryMcpTools {
   ) async {
     HistoryDb? db;
     try {
-      db = await HistoryDb.open(_paths.dbFile.path);
+      final config = await ProjectConfig.load(
+        _paths.configFile,
+        rootPath: rootPath,
+      );
+      db = await HistoryDb.open(
+        _paths.dbFile.path,
+        branchContextProvider: () =>
+            resolveBranchContext(rootPath: rootPath, config: config.gitContext),
+      );
       return await action(db);
     } on StateError catch (error) {
       return _errorResult(error.message);

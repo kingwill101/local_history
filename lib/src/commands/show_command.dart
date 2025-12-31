@@ -28,7 +28,11 @@ class ShowCommand extends BaseCommand {
       throw usageException('Missing <rev_id>');
     }
     final revId = parseInt(argResults!.rest.first, 'rev_id');
-    final db = await HistoryDb.open(paths.dbFile.path);
+    final config = await loadConfig();
+    final db = await HistoryDb.open(
+      paths.dbFile.path,
+      branchContextProvider: branchContextProvider(config),
+    );
     final revision = await db.getRevision(revId);
     await db.close();
 

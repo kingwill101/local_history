@@ -38,8 +38,20 @@ const FieldDefinition _$SnapshotRecordLabelField = FieldDefinition(
   resolvedType: 'String?',
   isPrimaryKey: false,
   isNullable: true,
-  isUnique: true,
+  isUnique: false,
   isIndexed: false,
+  autoIncrement: false,
+);
+
+const FieldDefinition _$SnapshotRecordBranchContextField = FieldDefinition(
+  name: 'branchContext',
+  columnName: 'branch_context',
+  dartType: 'String',
+  resolvedType: 'String',
+  isPrimaryKey: false,
+  isNullable: false,
+  isUnique: false,
+  isIndexed: true,
   autoIncrement: false,
 );
 
@@ -58,6 +70,10 @@ Map<String, Object?> _encodeSnapshotRecordUntracked(
       m.createdAtMs,
     ),
     'label': registry.encodeField(_$SnapshotRecordLabelField, m.label),
+    'branch_context': registry.encodeField(
+      _$SnapshotRecordBranchContextField,
+      m.branchContext,
+    ),
   };
 }
 
@@ -69,6 +85,7 @@ final ModelDefinition<$SnapshotRecord> _$SnapshotRecordDefinition =
         _$SnapshotRecordSnapshotIdField,
         _$SnapshotRecordCreatedAtMsField,
         _$SnapshotRecordLabelField,
+        _$SnapshotRecordBranchContextField,
       ],
       relations: const [],
       softDeleteColumn: 'deleted_at',
@@ -153,6 +170,18 @@ class SnapshotRecords {
   /// {@macro ormed.repository}
   static Repository<$SnapshotRecord> repo([String? connection]) =>
       Model.repository<$SnapshotRecord>(connection: connection);
+
+  /// Builds a tracked model from a column/value map.
+  static $SnapshotRecord fromMap(
+    Map<String, Object?> data, {
+    ValueCodecRegistry? registry,
+  }) => _$SnapshotRecordDefinition.fromMap(data, registry: registry);
+
+  /// Converts a tracked model to a column/value map.
+  static Map<String, Object?> toMap(
+    $SnapshotRecord model, {
+    ValueCodecRegistry? registry,
+  }) => _$SnapshotRecordDefinition.toMap(model, registry: registry);
 }
 
 class SnapshotRecordModelFactory {
@@ -208,6 +237,10 @@ class _$SnapshotRecordCodec extends ModelCodec<$SnapshotRecord> {
         model.createdAtMs,
       ),
       'label': registry.encodeField(_$SnapshotRecordLabelField, model.label),
+      'branch_context': registry.encodeField(
+        _$SnapshotRecordBranchContextField,
+        model.branchContext,
+      ),
     };
   }
 
@@ -232,15 +265,25 @@ class _$SnapshotRecordCodec extends ModelCodec<$SnapshotRecord> {
       _$SnapshotRecordLabelField,
       data['label'],
     );
+    final String snapshotRecordBranchContextValue =
+        registry.decodeField<String>(
+          _$SnapshotRecordBranchContextField,
+          data['branch_context'],
+        ) ??
+        (throw StateError(
+          'Field branchContext on SnapshotRecord cannot be null.',
+        ));
     final model = $SnapshotRecord(
       snapshotId: snapshotRecordSnapshotIdValue,
       createdAtMs: snapshotRecordCreatedAtMsValue,
       label: snapshotRecordLabelValue,
+      branchContext: snapshotRecordBranchContextValue,
     );
     model._attachOrmRuntimeMetadata({
       'snapshot_id': snapshotRecordSnapshotIdValue,
       'created_at_ms': snapshotRecordCreatedAtMsValue,
       'label': snapshotRecordLabelValue,
+      'branch_context': snapshotRecordBranchContextValue,
     });
     return model;
   }
@@ -250,15 +293,21 @@ class _$SnapshotRecordCodec extends ModelCodec<$SnapshotRecord> {
 ///
 /// Auto-increment/DB-generated fields are omitted by default.
 class SnapshotRecordInsertDto implements InsertDto<$SnapshotRecord> {
-  const SnapshotRecordInsertDto({this.createdAtMs, this.label});
+  const SnapshotRecordInsertDto({
+    this.createdAtMs,
+    this.label,
+    this.branchContext,
+  });
   final int? createdAtMs;
   final String? label;
+  final String? branchContext;
 
   @override
   Map<String, Object?> toMap() {
     return <String, Object?>{
       if (createdAtMs != null) 'created_at_ms': createdAtMs,
       if (label != null) 'label': label,
+      if (branchContext != null) 'branch_context': branchContext,
     };
   }
 
@@ -267,6 +316,7 @@ class SnapshotRecordInsertDto implements InsertDto<$SnapshotRecord> {
   SnapshotRecordInsertDto copyWith({
     Object? createdAtMs = _copyWithSentinel,
     Object? label = _copyWithSentinel,
+    Object? branchContext = _copyWithSentinel,
   }) {
     return SnapshotRecordInsertDto(
       createdAtMs: identical(createdAtMs, _copyWithSentinel)
@@ -275,6 +325,9 @@ class SnapshotRecordInsertDto implements InsertDto<$SnapshotRecord> {
       label: identical(label, _copyWithSentinel)
           ? this.label
           : label as String?,
+      branchContext: identical(branchContext, _copyWithSentinel)
+          ? this.branchContext
+          : branchContext as String?,
     );
   }
 }
@@ -291,10 +344,12 @@ class SnapshotRecordUpdateDto implements UpdateDto<$SnapshotRecord> {
     this.snapshotId,
     this.createdAtMs,
     this.label,
+    this.branchContext,
   });
   final int? snapshotId;
   final int? createdAtMs;
   final String? label;
+  final String? branchContext;
 
   @override
   Map<String, Object?> toMap() {
@@ -302,6 +357,7 @@ class SnapshotRecordUpdateDto implements UpdateDto<$SnapshotRecord> {
       if (snapshotId != null) 'snapshot_id': snapshotId,
       if (createdAtMs != null) 'created_at_ms': createdAtMs,
       if (label != null) 'label': label,
+      if (branchContext != null) 'branch_context': branchContext,
     };
   }
 
@@ -311,6 +367,7 @@ class SnapshotRecordUpdateDto implements UpdateDto<$SnapshotRecord> {
     Object? snapshotId = _copyWithSentinel,
     Object? createdAtMs = _copyWithSentinel,
     Object? label = _copyWithSentinel,
+    Object? branchContext = _copyWithSentinel,
   }) {
     return SnapshotRecordUpdateDto(
       snapshotId: identical(snapshotId, _copyWithSentinel)
@@ -322,6 +379,9 @@ class SnapshotRecordUpdateDto implements UpdateDto<$SnapshotRecord> {
       label: identical(label, _copyWithSentinel)
           ? this.label
           : label as String?,
+      branchContext: identical(branchContext, _copyWithSentinel)
+          ? this.branchContext
+          : branchContext as String?,
     );
   }
 }
@@ -334,7 +394,12 @@ class _SnapshotRecordUpdateDtoCopyWithSentinel {
 ///
 /// All fields are nullable; intended for subset SELECTs.
 class SnapshotRecordPartial implements PartialEntity<$SnapshotRecord> {
-  const SnapshotRecordPartial({this.snapshotId, this.createdAtMs, this.label});
+  const SnapshotRecordPartial({
+    this.snapshotId,
+    this.createdAtMs,
+    this.label,
+    this.branchContext,
+  });
 
   /// Creates a partial from a database row map.
   ///
@@ -345,12 +410,14 @@ class SnapshotRecordPartial implements PartialEntity<$SnapshotRecord> {
       snapshotId: row['snapshot_id'] as int?,
       createdAtMs: row['created_at_ms'] as int?,
       label: row['label'] as String?,
+      branchContext: row['branch_context'] as String?,
     );
   }
 
   final int? snapshotId;
   final int? createdAtMs;
   final String? label;
+  final String? branchContext;
 
   @override
   $SnapshotRecord toEntity() {
@@ -359,10 +426,15 @@ class SnapshotRecordPartial implements PartialEntity<$SnapshotRecord> {
     if (createdAtMsValue == null) {
       throw StateError('Missing required field: createdAtMs');
     }
+    final String? branchContextValue = branchContext;
+    if (branchContextValue == null) {
+      throw StateError('Missing required field: branchContext');
+    }
     return $SnapshotRecord(
       snapshotId: snapshotId,
       createdAtMs: createdAtMsValue,
       label: label,
+      branchContext: branchContextValue,
     );
   }
 
@@ -372,6 +444,7 @@ class SnapshotRecordPartial implements PartialEntity<$SnapshotRecord> {
       if (snapshotId != null) 'snapshot_id': snapshotId,
       if (createdAtMs != null) 'created_at_ms': createdAtMs,
       if (label != null) 'label': label,
+      if (branchContext != null) 'branch_context': branchContext,
     };
   }
 
@@ -381,6 +454,7 @@ class SnapshotRecordPartial implements PartialEntity<$SnapshotRecord> {
     Object? snapshotId = _copyWithSentinel,
     Object? createdAtMs = _copyWithSentinel,
     Object? label = _copyWithSentinel,
+    Object? branchContext = _copyWithSentinel,
   }) {
     return SnapshotRecordPartial(
       snapshotId: identical(snapshotId, _copyWithSentinel)
@@ -392,6 +466,9 @@ class SnapshotRecordPartial implements PartialEntity<$SnapshotRecord> {
       label: identical(label, _copyWithSentinel)
           ? this.label
           : label as String?,
+      branchContext: identical(branchContext, _copyWithSentinel)
+          ? this.branchContext
+          : branchContext as String?,
     );
   }
 }
@@ -412,16 +489,22 @@ class $SnapshotRecord extends SnapshotRecord
     with ModelAttributes
     implements OrmEntity {
   /// Internal constructor for [$SnapshotRecord].
-  $SnapshotRecord({int? snapshotId, required int createdAtMs, String? label})
-    : super.new(
-        snapshotId: snapshotId,
-        createdAtMs: createdAtMs,
-        label: label,
-      ) {
+  $SnapshotRecord({
+    int? snapshotId,
+    required int createdAtMs,
+    String? label,
+    required String branchContext,
+  }) : super(
+         snapshotId: snapshotId,
+         createdAtMs: createdAtMs,
+         label: label,
+         branchContext: branchContext,
+       ) {
     _attachOrmRuntimeMetadata({
       'snapshot_id': snapshotId,
       'created_at_ms': createdAtMs,
       'label': label,
+      'branch_context': branchContext,
     });
   }
 
@@ -431,16 +514,33 @@ class $SnapshotRecord extends SnapshotRecord
       snapshotId: model.snapshotId,
       createdAtMs: model.createdAtMs,
       label: model.label,
+      branchContext: model.branchContext,
     );
   }
 
-  $SnapshotRecord copyWith({int? snapshotId, int? createdAtMs, String? label}) {
+  $SnapshotRecord copyWith({
+    int? snapshotId,
+    int? createdAtMs,
+    String? label,
+    String? branchContext,
+  }) {
     return $SnapshotRecord(
       snapshotId: snapshotId ?? this.snapshotId,
       createdAtMs: createdAtMs ?? this.createdAtMs,
       label: label ?? this.label,
+      branchContext: branchContext ?? this.branchContext,
     );
   }
+
+  /// Builds a tracked model from a column/value map.
+  static $SnapshotRecord fromMap(
+    Map<String, Object?> data, {
+    ValueCodecRegistry? registry,
+  }) => _$SnapshotRecordDefinition.fromMap(data, registry: registry);
+
+  /// Converts this tracked model to a column/value map.
+  Map<String, Object?> toMap({ValueCodecRegistry? registry}) =>
+      _$SnapshotRecordDefinition.toMap(this, registry: registry);
 
   /// Tracked getter for [snapshotId].
   @override
@@ -464,13 +564,59 @@ class $SnapshotRecord extends SnapshotRecord
   /// Tracked setter for [label].
   set label(String? value) => setAttribute('label', value);
 
+  /// Tracked getter for [branchContext].
+  @override
+  String get branchContext =>
+      getAttribute<String>('branch_context') ?? super.branchContext;
+
+  /// Tracked setter for [branchContext].
+  set branchContext(String value) => setAttribute('branch_context', value);
+
   void _attachOrmRuntimeMetadata(Map<String, Object?> values) {
     replaceAttributes(values);
     attachModelDefinition(_$SnapshotRecordDefinition);
   }
 }
 
+class _SnapshotRecordCopyWithSentinel {
+  const _SnapshotRecordCopyWithSentinel();
+}
+
 extension SnapshotRecordOrmExtension on SnapshotRecord {
+  static const _SnapshotRecordCopyWithSentinel _copyWithSentinel =
+      _SnapshotRecordCopyWithSentinel();
+  SnapshotRecord copyWith({
+    Object? snapshotId = _copyWithSentinel,
+    Object? createdAtMs = _copyWithSentinel,
+    Object? label = _copyWithSentinel,
+    Object? branchContext = _copyWithSentinel,
+  }) {
+    return SnapshotRecord(
+      snapshotId: identical(snapshotId, _copyWithSentinel)
+          ? this.snapshotId
+          : snapshotId as int?,
+      createdAtMs: identical(createdAtMs, _copyWithSentinel)
+          ? this.createdAtMs
+          : createdAtMs as int,
+      label: identical(label, _copyWithSentinel)
+          ? this.label
+          : label as String?,
+      branchContext: identical(branchContext, _copyWithSentinel)
+          ? this.branchContext
+          : branchContext as String,
+    );
+  }
+
+  /// Converts this model to a column/value map.
+  Map<String, Object?> toMap({ValueCodecRegistry? registry}) =>
+      _$SnapshotRecordDefinition.toMap(this, registry: registry);
+
+  /// Builds a model from a column/value map.
+  static SnapshotRecord fromMap(
+    Map<String, Object?> data, {
+    ValueCodecRegistry? registry,
+  }) => _$SnapshotRecordDefinition.fromMap(data, registry: registry);
+
   /// The Type of the generated ORM-managed model class.
   /// Use this when you need to specify the tracked model type explicitly,
   /// for example in generic type parameters.
@@ -482,6 +628,17 @@ extension SnapshotRecordOrmExtension on SnapshotRecord {
   $SnapshotRecord toTracked() {
     return $SnapshotRecord.fromModel(this);
   }
+}
+
+extension SnapshotRecordPredicateFields on PredicateBuilder<SnapshotRecord> {
+  PredicateField<SnapshotRecord, int?> get snapshotId =>
+      PredicateField<SnapshotRecord, int?>(this, 'snapshotId');
+  PredicateField<SnapshotRecord, int> get createdAtMs =>
+      PredicateField<SnapshotRecord, int>(this, 'createdAtMs');
+  PredicateField<SnapshotRecord, String?> get label =>
+      PredicateField<SnapshotRecord, String?>(this, 'label');
+  PredicateField<SnapshotRecord, String> get branchContext =>
+      PredicateField<SnapshotRecord, String>(this, 'branchContext');
 }
 
 void registerSnapshotRecordEventHandlers(EventBus bus) {

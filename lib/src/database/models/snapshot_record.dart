@@ -13,6 +13,7 @@ class SnapshotRecord extends Model<SnapshotRecord> {
     this.snapshotId,
     required this.createdAtMs,
     this.label,
+    required this.branchContext,
   });
 
   /// Primary key for the snapshot row.
@@ -24,6 +25,10 @@ class SnapshotRecord extends Model<SnapshotRecord> {
   final int createdAtMs;
 
   /// Optional unique snapshot label.
-  @OrmField(columnName: 'label', isNullable: true, isUnique: true)
+  @OrmField(columnName: 'label', isNullable: true)
   final String? label;
+
+  /// Branch context identifier for the snapshot.
+  @OrmField(columnName: 'branch_context', isIndexed: true)
+  final String branchContext;
 }

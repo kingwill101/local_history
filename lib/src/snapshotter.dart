@@ -123,7 +123,8 @@ class Snapshotter {
     final revId = await db.insertRevision(
       path: payload.path,
       timestampMs: DateTime.now().millisecondsSinceEpoch,
-      changeType: 'modify', // insertRevision handles create vs modify internally
+      changeType:
+          'modify', // insertRevision handles create vs modify internally
       content: payload.content,
       contentText: payload.contentText,
       mtimeMs: payload.mtimeMs,
@@ -197,7 +198,7 @@ class Snapshotter {
       );
       // Track all file paths found for deletion reconciliation
       existingPaths.add(relativePath);
-      
+
       if (!config.isPathIncluded(relativePath)) {
         continue;
       }

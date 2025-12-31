@@ -22,15 +22,21 @@ class InitCommand extends BaseCommand {
 
     await paths.historyDir.create(recursive: true);
 
+    ProjectConfig config;
     if (await paths.configFile.exists()) {
       io.note('Config already exists: ${paths.configFile.path}');
+      config = await loadConfig();
     } else {
-      final config = ProjectConfig.defaults(rootPath: paths.root.path);
+      config = ProjectConfig.defaults(rootPath: paths.root.path);
       await config.save(paths.configFile);
       io.success('Wrote default config to ${paths.configFile.path}');
     }
 
-    final db = await HistoryDb.open(paths.dbFile.path, createIfMissing: true);
+    final db = await HistoryDb.open(
+      paths.dbFile.path,
+      createIfMissing: true,
+      branchContextProvider: branchContextProvider(config),
+    );
     await db.close();
     io.success('Initialized database at ${paths.dbFile.path}');
 

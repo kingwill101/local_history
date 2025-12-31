@@ -59,6 +59,25 @@ class LimitsConfig {
   int get maxFileSizeBytes => maxFileSizeMb * 1024 * 1024;
 }
 
+/// Git branch context behavior for history scoping.
+class GitContextConfig {
+  /// Creates a git context configuration.
+  const GitContextConfig({
+    required this.enabled,
+    required this.nonGitFallback,
+    required this.detachedHeadFallback,
+  });
+
+  /// Whether git branch context scoping is enabled.
+  final bool enabled;
+
+  /// Fallback branch identifier when outside a git repository.
+  final String nonGitFallback;
+
+  /// Fallback branch identifier when HEAD is detached.
+  final String detachedHeadFallback;
+}
+
 /// Configuration for a Local History project.
 class ProjectConfig {
   /// Creates a project configuration.
@@ -67,6 +86,7 @@ class ProjectConfig {
     required this.version,
     required this.watch,
     required this.limits,
+    required this.gitContext,
     required this.textExtensions,
     required this.debounceMs,
     required this.snapshotConcurrency,
@@ -93,6 +113,9 @@ class ProjectConfig {
 
   /// Retention limits.
   final LimitsConfig limits;
+
+  /// Git branch context configuration.
+  final GitContextConfig gitContext;
 
   /// File extensions treated as text for search indexing.
   final List<String> textExtensions;
@@ -197,6 +220,22 @@ class ProjectConfig {
   /// Default deferred indexing batch size.
   static const int defaultFtsBatchSize = 500;
 
+  /// Default git branch context setting.
+  static const bool defaultGitBranchContextEnabled = false;
+
+  /// Default fallback for non-git paths.
+  static const String defaultGitNonGitFallback = 'default';
+
+  /// Default fallback for detached HEAD.
+  static const String defaultGitDetachedHeadFallback = 'detached';
+
+  /// Default git context configuration.
+  static const GitContextConfig defaultGitContext = GitContextConfig(
+    enabled: defaultGitBranchContextEnabled,
+    nonGitFallback: defaultGitNonGitFallback,
+    detachedHeadFallback: defaultGitDetachedHeadFallback,
+  );
+
   /// Creates the default config for [rootPath].
   static ProjectConfig defaults({required String rootPath}) => ProjectConfig(
     rootPath: rootPath,
@@ -211,6 +250,7 @@ class ProjectConfig {
       maxDays: 30,
       maxFileSizeMb: 5,
     ),
+    gitContext: defaultGitContext,
     textExtensions: defaultTextExtensions,
     debounceMs: defaultDebounceMs,
     snapshotConcurrency: defaultSnapshotConcurrency,
@@ -270,6 +310,22 @@ class ProjectConfig {
       maxFileSizeMb: _readInt(limitsMap['max_file_size_mb'], fallback: 5),
     );
 
+    final gitMap = _readMap(map['git']);
+    final gitContext = GitContextConfig(
+      enabled: _readBool(
+        gitMap['branch_context_enabled'] ?? gitMap['branch_context'],
+        fallback: defaultGitBranchContextEnabled,
+      ),
+      nonGitFallback: _readString(
+        gitMap['non_git_fallback'],
+        fallback: defaultGitNonGitFallback,
+      ),
+      detachedHeadFallback: _readString(
+        gitMap['detached_head_fallback'],
+        fallback: defaultGitDetachedHeadFallback,
+      ),
+    );
+
     final textExtensions = _readStringList(
       map['text_extensions'],
       fallback: defaultTextExtensions,
@@ -321,6 +377,7 @@ class ProjectConfig {
       version: version,
       watch: watch,
       limits: limits,
+      gitContext: gitContext,
       textExtensions: textExtensions,
       debounceMs: debounceMs < 0 ? defaultDebounceMs : debounceMs,
       snapshotConcurrency: snapshotConcurrency < 1
@@ -361,6 +418,14 @@ class ProjectConfig {
     buffer.writeln('  max_revisions_per_file: ${limits.maxRevisionsPerFile}');
     buffer.writeln('  max_days: ${limits.maxDays}');
     buffer.writeln('  max_file_size_mb: ${limits.maxFileSizeMb}');
+    buffer.writeln('git:');
+    buffer.writeln('  branch_context_enabled: ${gitContext.enabled}');
+    buffer.writeln(
+      '  non_git_fallback: "${_escapeYaml(gitContext.nonGitFallback)}"',
+    );
+    buffer.writeln(
+      '  detached_head_fallback: "${_escapeYaml(gitContext.detachedHeadFallback)}"',
+    );
     buffer.writeln('debounce_ms: $debounceMs');
     buffer.writeln('snapshot_concurrency: $snapshotConcurrency');
     buffer.writeln('snapshot_write_batch: $snapshotWriteBatch');
@@ -451,6 +516,14 @@ List<String> _readStringList(Object? value, {required List<String> fallback}) {
   }
   if (value is List) {
     return value.map((item) => item.toString()).toList(growable: false);
+  }
+  return fallback;
+}
+
+String _readString(Object? value, {required String fallback}) {
+  if (value is String) {
+    final trimmed = value.trim();
+    if (trimmed.isNotEmpty) return trimmed;
   }
   return fallback;
 }

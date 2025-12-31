@@ -51,7 +51,10 @@ class ReindexCommand extends BaseCommand {
       rawOverride: argResults!['batch'] as String?,
     );
 
-    final db = await HistoryDb.open(paths.dbFile.path);
+    final db = await HistoryDb.open(
+      paths.dbFile.path,
+      branchContextProvider: branchContextProvider(config),
+    );
     final indexed = runAll
         ? await db.reindexAll(batchSize: batchSize)
         : await db.reindexPending(batchSize: batchSize);
