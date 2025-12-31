@@ -1075,12 +1075,6 @@ SnapshotInfo? _snapshotFromRecord(SnapshotRecord? record) {
   );
 }
 
-int _asInt(Object? value) {
-  if (value is int) return value;
-  if (value is num) return value.toInt();
-  return 0;
-}
-
 List<List<T>> _chunkList<T>(List<T> items, int size) {
   if (items.isEmpty) return const [];
   if (size <= 0) return [List<T>.from(items)];
