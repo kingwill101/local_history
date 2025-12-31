@@ -53,10 +53,10 @@ packages:
     dependency: "direct main"
     description:
       name: artisanal
-      sha256: "2c948dc64cbaad33f7bf9ce272502c942e3e2dd86f575775c2d5c8016433687d"
+      sha256: "47c0db9bb5bc584c21fca280e465beb9b4f2c4ba850c1740f8c21ab76efab581"
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.0-dev+5"
+    version: "0.1.0"
   async:
     dependency: transitive
     description:
@@ -541,42 +541,42 @@ packages:
     dependency: "direct main"
     description:
       name: ormed
-      sha256: "25f07929a4db7a7e06e2e6f6ec2331ed00688cc26ed29a6827f474a76d0799c4"
+      sha256: "444a2aa14655dc36da3e447ff517450c1a38cc0f91737a004dfa578607395da3"
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.0-dev+5"
+    version: "0.1.0-dev+6"
   ormed_cli:
     dependency: "direct dev"
     description:
       name: ormed_cli
-      sha256: "34dd541193bd1849535f24c80bddfe2a185e2a936f93953d218d9a7b4d0bac33"
+      sha256: "5e88b6e1f1c97086851f22a92f0614733444c42d4fc01a799e9f1c13fbdddcf2"
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.0-dev+5"
+    version: "0.1.0-dev+6"
   ormed_mysql:
     dependency: transitive
     description:
       name: ormed_mysql
-      sha256: abf30c2d9b9a3dbe8096b77beab8013f2108b6602821d78a1e2e46070920a581
+      sha256: c7a1e8b0908880898d92fa3b1dc75e07068c6721a53d515ef322005212e9d373
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.0-dev+5"
+    version: "0.1.0-dev+6"
   ormed_postgres:
     dependency: transitive
     description:
       name: ormed_postgres
-      sha256: caedcb0d2d2e90e276da8c45c7bd8766be726a9554ce7bbc5629dbc8838c8b39
+      sha256: d6525d69458935b2e687927df3b1de393dae91af430db5566fa446135f1ac5f9
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.0-dev+5"
+    version: "0.1.0-dev+6"
   ormed_sqlite:
     dependency: "direct main"
     description:
       name: ormed_sqlite
-      sha256: "6075c622d3a1648e7e31fe19fa0e2cb7c5e938cfd7f4ce7784a2e8c4f62bf1fe"
+      sha256: b23ea5cb0c71f5fea0d710164c114dc0d14fb2b50328739d8e578b930d372fdc
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.0-dev+5"
+    version: "0.1.0-dev+6"
   package_config:
     dependency: transitive
     description:

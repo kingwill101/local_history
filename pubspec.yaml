@@ -12,8 +12,8 @@ environment:
 dependencies:
   path: ^1.9.0
   artisanal: ^0.1.0-dev+5
-  ormed: ^0.1.0-dev+5
-  ormed_sqlite: ^0.1.0-dev+5
+  ormed: ^0.1.0-dev+6
+  ormed_sqlite: ^0.1.0-dev+6
   contextual: ^2.0.0
   crypto: ^3.0.3
   dart_mcp: ^0.4.0
@@ -25,5 +25,5 @@ dependencies:
 dev_dependencies:
   lints: ^6.0.0
   test: ^1.25.6
-  ormed_cli: ^0.1.0-dev+5
+  ormed_cli: ^0.1.0-dev+6
   build_runner: ^2.10.4

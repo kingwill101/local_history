@@ -78,6 +78,7 @@ class DaemonCommand extends BaseCommand {
     if (!logsDir.existsSync()) {
       logsDir.createSync(recursive: true);
     }
+    Logger? dbLogger;
     final logger = Logger()
       ..addChannel(
         'file',
@@ -93,14 +94,31 @@ class DaemonCommand extends BaseCommand {
         formatter: PrettyLogFormatter(),
       )
       ..withContext({'component': 'daemon'});
+    if (dbLogging) {
+      dbLogger = Logger(defaultChannelEnabled: false)
+        ..addChannel(
+          'file',
+          DailyFileLogDriver(
+            '${logsDir.path}/db',
+            retentionDays: 7,
+          ),
+          formatter: PlainTextLogFormatter(),
+        )
+        ..withContext({'component': 'database'});
+    }
 
     try {
-      db = await HistoryDb.open(paths.dbFile.path, enableLogging: dbLogging);
+      db = await HistoryDb.open(
+        paths.dbFile.path,
+        enableLogging: dbLogging,
+        logger: dbLogger,
+      );
       logger.info('Database opened', Context({'path': paths.dbFile.path}));
 
       ProcessSignal.sigint.watch().listen((_) async {
         io.warning('Stopping daemon...');
         logger.info('Received SIGINT, shutting down');
+        await dbLogger?.shutdown();
         await logger.shutdown();
         await db?.close();
         exit(0);
@@ -126,6 +144,7 @@ class DaemonCommand extends BaseCommand {
         exitCode = 1;
       }
     } finally {
+      await dbLogger?.shutdown();
       await logger.shutdown();
       await db?.close();
       if (db == null) {

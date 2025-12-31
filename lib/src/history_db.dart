@@ -6,6 +6,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 
+import 'package:contextual/contextual.dart' as contextual;
 import 'package:ormed/ormed.dart';
 import 'package:ormed_sqlite/ormed_sqlite.dart';
 
@@ -38,6 +39,8 @@ class HistoryDb {
   /// Set [enableLogging] to enable query logging. Logs will be written to
   /// [logFilePath] if provided; defaults to the `.lh/` directory.
   ///
+  /// Set [logger] to provide a custom contextual logger for query logs.
+  ///
   /// #### Throws
   /// - [StateError] if the database is missing and [createIfMissing] is `false`.
   static Future<HistoryDb> open(
@@ -45,6 +48,7 @@ class HistoryDb {
     bool createIfMissing = false,
     bool enableLogging = false,
     String? logFilePath,
+    contextual.Logger? logger,
   }) async {
     final file = File(path);
     if (!file.existsSync()) {
@@ -74,6 +78,7 @@ class HistoryDb {
         name: dataSourceName,
         logging: enableLogging,
         logFilePath: resolvedLogPath,
+        logger: enableLogging ? logger : null,
       ),
     );
     await dataSource.init();
