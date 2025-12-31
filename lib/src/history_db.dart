@@ -21,7 +21,7 @@ import 'database/models/snapshot_revision_record.dart';
 import 'git_context.dart';
 import 'history_models.dart';
 
-const String _ftsTable = 'revisions_content_text_fts';
+const String _ftsTable = 'revisions_revisions_content_text_fulltext_fts';
 
 /// Provides database operations for Local History revisions and snapshots.
 class HistoryDb {
@@ -101,7 +101,7 @@ class HistoryDb {
       ledger: SqlMigrationLedger(adapter),
       migrations: buildMigrations(),
     );
-    await _adapter.withoutForeignKeyConstraints(() async {
+    await adapter.withoutForeignKeyConstraints(() async {
       await runner.applyAll();
     });
 
@@ -545,49 +545,65 @@ WHERE f.branch_context = ?
 
     final context = await _resolveBranchContext();
     final scopedBranch = context.scopedValue;
-    final where = <String>['$_ftsTable MATCH ?'];
-    final params = <Object?>[query];
 
-    if (path != null) {
-      where.add('f.path = ?');
-      params.add(path);
-    }
+    Query<RevisionRecord> revisionQuery = _dataSource
+        .query<RevisionRecord>()
+        .whereFullText(['content_text'], query);
+
     if (sinceMs != null) {
-      where.add('r.timestamp >= ?');
-      params.add(sinceMs);
+      revisionQuery = revisionQuery.whereGreaterThan('timestampMs', sinceMs);
     }
     if (untilMs != null) {
-      where.add('r.timestamp <= ?');
-      params.add(untilMs);
-    }
-    if (scopedBranch != null) {
-      where.add('f.branch_context = ?');
-      params.add(scopedBranch);
+      revisionQuery = revisionQuery.whereLessThan('timestampMs', untilMs);
     }
 
-    // TODO: Replace raw SQL FTS query once Ormed exposes MATCH helpers.
-    final sql =
-        '''
-SELECT r.rev_id AS rev_id, r.timestamp AS timestamp, f.path AS path, r.label AS label
-FROM $_ftsTable idx
-JOIN revisions r ON r.rev_id = idx.rowid
-JOIN files f ON f.file_id = r.file_id
-WHERE ${where.join(' AND ')}
-ORDER BY r.timestamp DESC
-LIMIT ?
-''';
+    List<int>? fileIds;
+    if (path != null) {
+      var fileQuery = _dataSource.query<FileRecord>().whereEquals('path', path);
+      if (scopedBranch != null) {
+        fileQuery = fileQuery.whereEquals('branchContext', scopedBranch);
+      }
+      final records = await fileQuery.get();
+      fileIds = records
+          .map((record) => record.fileId)
+          .whereType<int>()
+          .toList();
+    } else if (scopedBranch != null) {
+      fileIds = await _fileIdsForBranch(scopedBranch);
+    }
 
-    params.add(limit);
-    final rows = await _adapter.queryRaw(sql, params);
-    if (rows.isEmpty) return const [];
+    if (fileIds != null) {
+      if (fileIds.isEmpty) return const [];
+      revisionQuery = revisionQuery.whereIn('fileId', fileIds);
+    }
 
-    return rows
+    revisionQuery = revisionQuery.orderBy('timestampMs', descending: true);
+    if (limit > 0) {
+      revisionQuery = revisionQuery.limit(limit);
+    }
+
+    final revisions = await revisionQuery.get();
+    if (revisions.isEmpty) return const [];
+
+    final revisionFileIds = revisions
+        .map((revision) => revision.fileId)
+        .toSet()
+        .toList(growable: false);
+    final files = await _dataSource
+        .query<FileRecord>()
+        .whereIn('fileId', revisionFileIds)
+        .get();
+    final fileMap = <int, String>{
+      for (final file in files) file.fileId ?? 0: file.path,
+    };
+
+    return revisions
         .map(
-          (row) => SearchResult(
-            revId: _asInt(row['rev_id']),
-            path: (row['path'] as String?) ?? '',
-            timestampMs: _asInt(row['timestamp']),
-            label: row['label'] as String?,
+          (revision) => SearchResult(
+            revId: revision.revId ?? 0,
+            path: fileMap[revision.fileId] ?? '',
+            timestampMs: revision.timestampMs,
+            label: revision.label,
           ),
         )
         .toList(growable: false);
@@ -619,22 +635,8 @@ LIMIT ?
   Future<int> reindexAll({required int batchSize}) async {
     return _withWriteLock(() async {
       final scopedBranch = (await _resolveBranchContext()).scopedValue;
-      // TODO: Replace raw SQL once Ormed exposes FTS management helpers.
       if (scopedBranch == null) {
-        await _adapter.executeRaw('DELETE FROM $_ftsTable');
-      } else {
-        await _adapter.executeRaw(
-          '''
-DELETE FROM $_ftsTable
-WHERE rowid IN (
-  SELECT r.rev_id
-  FROM revisions r
-  JOIN files f ON f.file_id = r.file_id
-  WHERE f.branch_context = ?
-)
-''',
-          [scopedBranch],
-        );
+        await _adapter.truncateTable(_ftsTable);
       }
       final query = _dataSource
           .query<RevisionRecord>()

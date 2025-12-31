@@ -12,7 +12,8 @@ import 'migrations/m_20251228193057_add_snapshots.dart';
 import 'migrations/m_20251228195843_add_revision_checksum.dart';
 import 'migrations/m_20251229094413_add_files_last_checksum.dart';
 import 'migrations/m_20251229183951_add_file_metadata_and_revision_raw_text.dart';
-import 'migrations/m_20251231140000_add_branch_context.dart'; // </ORM-MIGRATION-IMPORTS>
+import 'migrations/m_20251231140000_add_branch_context.dart';
+import 'migrations/m_20251231170000_align_revisions_fts_index_name.dart'; // </ORM-MIGRATION-IMPORTS>
 
 final List<MigrationEntry> _entries = [
   // <ORM-MIGRATION-REGISTRY>
@@ -45,6 +46,10 @@ final List<MigrationEntry> _entries = [
   MigrationEntry(
     id: MigrationId.parse('m_20251231140000_add_branch_context'),
     migration: const AddBranchContext(),
+  ),
+  MigrationEntry(
+    id: MigrationId.parse('m_20251231170000_align_revisions_fts_index_name'),
+    migration: const AlignRevisionsFtsIndexName(),
   ), // </ORM-MIGRATION-REGISTRY>
 ];
 
