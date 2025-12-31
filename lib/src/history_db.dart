@@ -21,7 +21,7 @@ import 'database/models/snapshot_revision_record.dart';
 import 'git_context.dart';
 import 'history_models.dart';
 
-const String _ftsTable = 'revisions_revisions_content_text_fulltext_fts';
+const int _maxSqliteVariables = 900;
 
 /// Provides database operations for Local History revisions and snapshots.
 class HistoryDb {
@@ -546,16 +546,9 @@ WHERE f.branch_context = ?
     final context = await _resolveBranchContext();
     final scopedBranch = context.scopedValue;
 
-    Query<RevisionRecord> revisionQuery = _dataSource
+    Query<RevisionRecord> baseQuery() => _dataSource
         .query<RevisionRecord>()
         .whereFullText(['content_text'], query);
-
-    if (sinceMs != null) {
-      revisionQuery = revisionQuery.whereGreaterThan('timestampMs', sinceMs);
-    }
-    if (untilMs != null) {
-      revisionQuery = revisionQuery.whereLessThan('timestampMs', untilMs);
-    }
 
     List<int>? fileIds;
     if (path != null) {
@@ -572,17 +565,46 @@ WHERE f.branch_context = ?
       fileIds = await _fileIdsForBranch(scopedBranch);
     }
 
-    if (fileIds != null) {
-      if (fileIds.isEmpty) return const [];
-      revisionQuery = revisionQuery.whereIn('fileId', fileIds);
+    if (fileIds != null && fileIds.isEmpty) {
+      return const [];
     }
 
-    revisionQuery = revisionQuery.orderBy('timestampMs', descending: true);
-    if (limit > 0) {
-      revisionQuery = revisionQuery.limit(limit);
+    Future<List<RevisionRecord>> fetchChunk(List<int>? ids) async {
+      var revisionQuery = baseQuery();
+      if (sinceMs != null) {
+        revisionQuery = revisionQuery.whereGreaterThanOrEqual(
+          'timestampMs',
+          sinceMs,
+        );
+      }
+      if (untilMs != null) {
+        revisionQuery = revisionQuery.whereLessThanOrEqual(
+          'timestampMs',
+          untilMs,
+        );
+      }
+      if (ids != null) {
+        revisionQuery = revisionQuery.whereIn('fileId', ids);
+      }
+      revisionQuery = revisionQuery.orderBy('timestampMs', descending: true);
+      if (limit > 0) {
+        revisionQuery = revisionQuery.limit(limit);
+      }
+      return revisionQuery.get();
     }
 
-    final revisions = await revisionQuery.get();
+    List<RevisionRecord> revisions;
+    if (fileIds != null && fileIds.length > _maxSqliteVariables) {
+      final chunks = _chunkList(fileIds, _maxSqliteVariables);
+      final results = <RevisionRecord>[];
+      for (final chunk in chunks) {
+        results.addAll(await fetchChunk(chunk));
+      }
+      results.sort((a, b) => b.timestampMs.compareTo(a.timestampMs));
+      revisions = limit > 0 ? results.take(limit).toList() : results;
+    } else {
+      revisions = await fetchChunk(fileIds);
+    }
     if (revisions.isEmpty) return const [];
 
     final revisionFileIds = revisions
@@ -635,9 +657,6 @@ WHERE f.branch_context = ?
   Future<int> reindexAll({required int batchSize}) async {
     return _withWriteLock(() async {
       final scopedBranch = (await _resolveBranchContext()).scopedValue;
-      if (scopedBranch == null) {
-        await _adapter.truncateTable(_ftsTable);
-      }
       final query = _dataSource
           .query<RevisionRecord>()
           .whereNotNull('contentTextRaw')
@@ -1069,6 +1088,17 @@ int _asInt(Object? value) {
   if (value is int) return value;
   if (value is num) return value.toInt();
   return 0;
+}
+
+List<List<T>> _chunkList<T>(List<T> items, int size) {
+  if (items.isEmpty) return const [];
+  if (size <= 0) return [List<T>.from(items)];
+  final chunks = <List<T>>[];
+  for (var i = 0; i < items.length; i += size) {
+    final end = i + size;
+    chunks.add(items.sublist(i, end > items.length ? items.length : end));
+  }
+  return chunks;
 }
 
 class _BytesListCodec extends ValueCodec<List<int>> {
