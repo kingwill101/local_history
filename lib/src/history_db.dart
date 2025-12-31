@@ -101,7 +101,9 @@ class HistoryDb {
       ledger: SqlMigrationLedger(adapter),
       migrations: buildMigrations(),
     );
-    await runner.applyAll();
+    await _adapter.withoutForeignKeyConstraints(() async {
+      await runner.applyAll();
+    });
 
     return HistoryDb._(path, dataSource, adapter, branchContextProvider);
   }
