@@ -11,9 +11,31 @@ import 'package:test/test.dart';
 
 /// Runs daemon tests.
 void main() {
+  Future<void> _deleteDirWithRetry(
+    Directory dir, {
+    int attempts = 5,
+    Duration delay = const Duration(milliseconds: 50),
+  }) async {
+    Object? lastError;
+    for (var i = 0; i < attempts; i++) {
+      try {
+        if (await dir.exists()) {
+          await dir.delete(recursive: true);
+        }
+        return;
+      } catch (error) {
+        lastError = error;
+        await Future.delayed(delay);
+      }
+    }
+    if (lastError != null) {
+      throw lastError;
+    }
+  }
+
   Future<Directory> createProject() async {
     final dir = await Directory.systemTemp.createTemp('lh_daemon');
-    addTearDown(() => dir.delete(recursive: true));
+    addTearDown(() => _deleteDirWithRetry(dir));
     return dir;
   }
 
