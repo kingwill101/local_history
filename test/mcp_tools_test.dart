@@ -14,6 +14,9 @@ void main() {
   Future<Directory> createProject() async {
     final dir = await Directory.systemTemp.createTemp('lh_mcp_tools');
     addTearDown(() => dir.delete(recursive: true));
+    final paths = ProjectPaths(dir);
+    final config = ProjectConfig.defaults(rootPath: dir.path);
+    await config.save(paths.configFile);
     return dir;
   }
 
