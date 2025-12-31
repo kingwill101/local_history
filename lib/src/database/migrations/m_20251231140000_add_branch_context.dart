@@ -11,6 +11,7 @@ class AddBranchContext extends Migration {
 
   @override
   void up(SchemaBuilder schema) {
+    schema.raw('PRAGMA foreign_keys = OFF');
     schema.raw('''
 CREATE TABLE files_new (
   file_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,10 +64,12 @@ CREATE TABLE snapshots_new (
     );
     schema.raw('DROP TABLE snapshots');
     schema.raw('ALTER TABLE snapshots_new RENAME TO snapshots');
+    schema.raw('PRAGMA foreign_keys = ON');
   }
 
   @override
   void down(SchemaBuilder schema) {
+    schema.raw('PRAGMA foreign_keys = OFF');
     schema.raw('''
 CREATE TABLE files_new (
   file_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -99,5 +102,6 @@ CREATE TABLE snapshots_new (
     );
     schema.raw('DROP TABLE snapshots');
     schema.raw('ALTER TABLE snapshots_new RENAME TO snapshots');
+    schema.raw('PRAGMA foreign_keys = ON');
   }
 }
