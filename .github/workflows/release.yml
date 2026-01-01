@@ -16,24 +16,16 @@ permissions:
 
 jobs:
   build-release:
-    name: Build Release (${{ matrix.os }} ${{ matrix.arch }})
+    name: Build Release (${{ matrix.os }})
     runs-on: ${{ matrix.runs_on }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: linux
-            arch: x64
             runs_on: ubuntu-latest
-          - os: linux
-            arch: arm64
-            runs_on: ubuntu-24.04-arm64
           - os: macos
-            arch: x64
-            runs_on: macos-13
-          - os: macos
-            arch: arm64
-            runs_on: macos-14
+            runs_on: macos-latest
 
     steps:
       - name: Checkout
@@ -45,8 +37,22 @@ jobs:
       - name: Install dependencies
         run: dart pub get
 
+      - name: Set build vars
+        run: |
+          echo "OS_ID=${{ matrix.os }}" >> "$GITHUB_ENV"
+          case "$(uname -m)" in
+            x86_64) echo "ARCH_ID=x64" >> "$GITHUB_ENV" ;;
+            arm64|aarch64) echo "ARCH_ID=arm64" >> "$GITHUB_ENV" ;;
+            *) echo "ARCH_ID=$(uname -m)" >> "$GITHUB_ENV" ;;
+          esac
+
       - name: Run tests
-        run: dart test
+        run: |
+          if [ "${{ matrix.os }}" = "linux" ]; then
+            dart run tool/run_tests.dart
+          else
+            dart test
+          fi
 
       - name: Build CLI
         run: |
@@ -55,11 +61,11 @@ jobs:
       - name: Package CLI
         run: |
           mkdir -p dist
-          cp build/cli/${{ matrix.os }}_${{ matrix.arch }}/bundle/bin/local_history dist/lh
-          tar -czf lh-${{ matrix.os }}-${{ matrix.arch }}.tar.gz -C dist lh
+          cp build/cli/${OS_ID}_${ARCH_ID}/bundle/bin/local_history dist/lh
+          tar -czf lh-${OS_ID}-${ARCH_ID}.tar.gz -C dist lh
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag || github.ref_name }}
-          files: lh-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
+          files: lh-${{ env.OS_ID }}-${{ env.ARCH_ID }}.tar.gz
